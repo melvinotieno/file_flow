@@ -16,10 +16,12 @@ dependencies:
   uuid: ^4.5.1
 
 dev_dependencies:
+  build_runner: ^2.4.14
   flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
-  pigeon: ^22.6.2
+  pigeon: ^22.7.1
+  pigeon_generator: ^2.0.6
 
 flutter:
   plugin:
