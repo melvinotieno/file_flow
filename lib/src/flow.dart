@@ -26,4 +26,16 @@ class FileFlow {
   static TaskOperation download(DownloadTask task) {
     return FileOperation().download(task);
   }
+
+  static BatchTaskOperation downloadBatch(List<DownloadTask> tasks) {
+    return FileOperation().downloadBatch(tasks);
+  }
+
+  static TaskOperation upload(UploadTask task) {
+    return FileOperation().upload(task);
+  }
+
+  static BatchTaskOperation uploadBatch(List<UploadTask> tasks) {
+    return FileOperation().uploadBatch(tasks);
+  }
 }
