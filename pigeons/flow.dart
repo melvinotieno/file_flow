@@ -1,6 +1,17 @@
 import 'package:pigeon/pigeon.dart';
 
-///
+class ProxyConfig {
+  ProxyConfig({
+    required this.address,
+    required this.port,
+  });
+
+  final String address;
+
+  final int port;
+}
+
+/// Represents the base storage directory for task files.
 enum StorageDirectory {
   applicationDocuments,
 
@@ -18,7 +29,7 @@ enum TaskType {
 
 /// The state of a task.
 enum TaskState {
-  /// Task is pending.
+  ///
   pending,
 
   /// Task is running.
@@ -33,22 +44,10 @@ enum TaskState {
   /// Task has failed.
   failed,
 
+  // retrying, TODO: implement retrying state
+
   /// Task has been canceled.
   canceled,
-}
-
-class TaskProgress {
-  TaskProgress({
-    required this.progress,
-  });
-
-  final int progress;
-}
-
-class TaskStatus {
-  TaskStatus({required this.state});
-
-  final TaskState state;
 }
 
 class Task {
@@ -58,11 +57,11 @@ class Task {
     required this.method,
     required this.headers,
     required this.timeout,
-    this.proxyAddress,
-    this.proxyPort,
+    this.proxy,
     required this.baseDirectory,
     this.directory,
     this.filename,
+    required this.group,
     required this.type,
   });
 
@@ -76,15 +75,15 @@ class Task {
 
   final int timeout;
 
-  final String? proxyAddress;
-
-  final int? proxyPort;
+  final ProxyConfig? proxy;
 
   final StorageDirectory baseDirectory;
 
   final String? directory;
 
   final String? filename;
+
+  final String group;
 
   final TaskType type;
 }
@@ -98,7 +97,28 @@ abstract class FileFlowHostApi {
   bool resume(String taskId);
 }
 
-@FlutterApi()
-abstract class FileFlowFlutterApi {
-  void onProgress(String taskId, int progress);
+sealed class TaskEvent {}
+
+class TaskProgress extends TaskEvent {
+  TaskProgress({
+    required this.taskId,
+    required this.progress,
+  });
+
+  final String taskId;
+
+  final int progress;
+}
+
+class TaskStatus extends TaskEvent {
+  TaskStatus({required this.taskId, required this.state});
+
+  final String taskId;
+
+  final TaskState state;
+}
+
+@EventChannelApi()
+abstract class FileFlowEventChannelApi {
+  TaskEvent streamTaskEvents();
 }
