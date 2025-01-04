@@ -27,14 +27,17 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is TaskState) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    }    else if (value is TaskProgress) {
+    }    else if (value is ProxyConfig) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    }    else if (value is TaskStatus) {
+    }    else if (value is Task) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is Task) {
+    }    else if (value is TaskProgress) {
       buffer.putUint8(134);
+      writeValue(buffer, value.encode());
+    }    else if (value is TaskStatus) {
+      buffer.putUint8(135);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -54,13 +57,17 @@ class _PigeonCodec extends StandardMessageCodec {
         final int? value = readValue(buffer) as int?;
         return value == null ? null : TaskState.values[value];
       case 132: 
-        return TaskProgress.decode(readValue(buffer)!);
+        return ProxyConfig.decode(readValue(buffer)!);
       case 133: 
-        return TaskStatus.decode(readValue(buffer)!);
-      case 134: 
         return Task.decode(readValue(buffer)!);
+      case 134: 
+        return TaskProgress.decode(readValue(buffer)!);
+      case 135: 
+        return TaskStatus.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
   }
 }
+
+const StandardMethodCodec pigeonMethodCodec = StandardMethodCodec(_PigeonCodec());

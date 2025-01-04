@@ -34,9 +34,6 @@ private fun wrapError(exception: Throwable): List<Any?> {
   }
 }
 
-private fun createConnectionError(channelName: String): FlowFlutterError {
-  return FlowFlutterError("channel-error",  "Unable to establish connection on channel: '$channelName'.", "")}
-
 /**
  * Error class for passing custom error details to Flutter via a thrown PlatformException.
  * @property code The error code.
@@ -49,7 +46,7 @@ class FlowFlutterError (
   val details: Any? = null
 ) : Throwable()
 
-/** */
+/** Represents the base storage directory for task files. */
 enum class StorageDirectory(val raw: Int) {
   APPLICATION_DOCUMENTS(0),
   DOWNLOADS(1);
@@ -77,7 +74,7 @@ enum class TaskType(val raw: Int) {
 
 /** The state of a task. */
 enum class TaskState(val raw: Int) {
-  /** Task is pending. */
+  /** */
   PENDING(0),
   /** Task is running. */
   RUNNING(1),
@@ -98,37 +95,22 @@ enum class TaskState(val raw: Int) {
 }
 
 /** Generated class from Pigeon that represents data sent in messages. */
-data class TaskProgress (
-  val progress: Long
+data class ProxyConfig (
+  val address: String,
+  val port: Long
 )
  {
   companion object {
-    fun fromList(pigeonVar_list: List<Any?>): TaskProgress {
-      val progress = pigeonVar_list[0] as Long
-      return TaskProgress(progress)
+    fun fromList(pigeonVar_list: List<Any?>): ProxyConfig {
+      val address = pigeonVar_list[0] as String
+      val port = pigeonVar_list[1] as Long
+      return ProxyConfig(address, port)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
-      progress,
-    )
-  }
-}
-
-/** Generated class from Pigeon that represents data sent in messages. */
-data class TaskStatus (
-  val state: TaskState
-)
- {
-  companion object {
-    fun fromList(pigeonVar_list: List<Any?>): TaskStatus {
-      val state = pigeonVar_list[0] as TaskState
-      return TaskStatus(state)
-    }
-  }
-  fun toList(): List<Any?> {
-    return listOf(
-      state,
+      address,
+      port,
     )
   }
 }
@@ -140,11 +122,11 @@ data class Task (
   val method: String,
   val headers: Map<String, String>,
   val timeout: Long,
-  val proxyAddress: String? = null,
-  val proxyPort: Long? = null,
-  val filename: String? = null,
-  val directory: String? = null,
+  val proxy: ProxyConfig? = null,
   val baseDirectory: StorageDirectory,
+  val directory: String? = null,
+  val filename: String? = null,
+  val group: String,
   val type: TaskType
 )
  {
@@ -155,13 +137,13 @@ data class Task (
       val method = pigeonVar_list[2] as String
       val headers = pigeonVar_list[3] as Map<String, String>
       val timeout = pigeonVar_list[4] as Long
-      val proxyAddress = pigeonVar_list[5] as String?
-      val proxyPort = pigeonVar_list[6] as Long?
-      val filename = pigeonVar_list[7] as String?
-      val directory = pigeonVar_list[8] as String?
-      val baseDirectory = pigeonVar_list[9] as StorageDirectory
+      val proxy = pigeonVar_list[5] as ProxyConfig?
+      val baseDirectory = pigeonVar_list[6] as StorageDirectory
+      val directory = pigeonVar_list[7] as String?
+      val filename = pigeonVar_list[8] as String?
+      val group = pigeonVar_list[9] as String
       val type = pigeonVar_list[10] as TaskType
-      return Task(id, url, method, headers, timeout, proxyAddress, proxyPort, filename, directory, baseDirectory, type)
+      return Task(id, url, method, headers, timeout, proxy, baseDirectory, directory, filename, group, type)
     }
   }
   fun toList(): List<Any?> {
@@ -171,12 +153,59 @@ data class Task (
       method,
       headers,
       timeout,
-      proxyAddress,
-      proxyPort,
-      filename,
-      directory,
+      proxy,
       baseDirectory,
+      directory,
+      filename,
+      group,
       type,
+    )
+  }
+}
+
+/**
+ * Generated class from Pigeon that represents data sent in messages.
+ * This class should not be extended by any user class outside of the generated file.
+ */
+sealed class TaskEvent 
+/** Generated class from Pigeon that represents data sent in messages. */
+data class TaskProgress (
+  val taskId: String,
+  val progress: Long
+) : TaskEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): TaskProgress {
+      val taskId = pigeonVar_list[0] as String
+      val progress = pigeonVar_list[1] as Long
+      return TaskProgress(taskId, progress)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      taskId,
+      progress,
+    )
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
+data class TaskStatus (
+  val taskId: String,
+  val state: TaskState
+) : TaskEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): TaskStatus {
+      val taskId = pigeonVar_list[0] as String
+      val state = pigeonVar_list[1] as TaskState
+      return TaskStatus(taskId, state)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      taskId,
+      state,
     )
   }
 }
@@ -200,17 +229,22 @@ private open class FlowPigeonCodec : StandardMessageCodec() {
       }
       132.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TaskProgress.fromList(it)
+          ProxyConfig.fromList(it)
         }
       }
       133.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TaskStatus.fromList(it)
+          Task.fromList(it)
         }
       }
       134.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          Task.fromList(it)
+          TaskProgress.fromList(it)
+        }
+      }
+      135.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          TaskStatus.fromList(it)
         }
       }
       else -> super.readValueOfType(type, buffer)
@@ -230,22 +264,28 @@ private open class FlowPigeonCodec : StandardMessageCodec() {
         stream.write(131)
         writeValue(stream, value.raw)
       }
-      is TaskProgress -> {
+      is ProxyConfig -> {
         stream.write(132)
         writeValue(stream, value.toList())
       }
-      is TaskStatus -> {
+      is Task -> {
         stream.write(133)
         writeValue(stream, value.toList())
       }
-      is Task -> {
+      is TaskProgress -> {
         stream.write(134)
+        writeValue(stream, value.toList())
+      }
+      is TaskStatus -> {
+        stream.write(135)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
     }
   }
 }
+
+val FlowPigeonMethodCodec = StandardMethodCodec(FlowPigeonCodec());
 
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface FileFlowHostApi {
@@ -316,29 +356,53 @@ interface FileFlowHostApi {
     }
   }
 }
-/** Generated class from Pigeon that represents Flutter messages that can be called from Kotlin. */
-class FileFlowFlutterApi(private val binaryMessenger: BinaryMessenger, private val messageChannelSuffix: String = "") {
-  companion object {
-    /** The codec used by FileFlowFlutterApi. */
-    val codec: MessageCodec<Any?> by lazy {
-      FlowPigeonCodec()
-    }
+
+private class PigeonStreamHandler<T>(
+    val wrapper: PigeonEventChannelWrapper<T>
+) : EventChannel.StreamHandler {
+  var pigeonSink: PigeonEventSink<T>? = null
+
+  override fun onListen(p0: Any?, sink: EventChannel.EventSink) {
+    pigeonSink = PigeonEventSink<T>(sink)
+    wrapper.onListen(p0, pigeonSink!!)
   }
-  fun onProgress(taskIdArg: String, progressArg: Long, callback: (Result<Unit>) -> Unit)
-{
-    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
-    val channelName = "dev.flutter.pigeon.file_flow.FileFlowFlutterApi.onProgress$separatedMessageChannelSuffix"
-    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
-    channel.send(listOf(taskIdArg, progressArg)) {
-      if (it is List<*>) {
-        if (it.size > 1) {
-          callback(Result.failure(FlowFlutterError(it[0] as String, it[1] as String, it[2] as String?)))
-        } else {
-          callback(Result.success(Unit))
-        }
-      } else {
-        callback(Result.failure(createConnectionError(channelName)))
-      } 
+
+  override fun onCancel(p0: Any?) {
+    pigeonSink = null
+    wrapper.onCancel(p0)
+  }
+}
+
+interface PigeonEventChannelWrapper<T> {
+  open fun onListen(p0: Any?, sink: PigeonEventSink<T>) {}
+
+  open fun onCancel(p0: Any?) {}
+}
+
+class PigeonEventSink<T>(private val sink: EventChannel.EventSink) {
+  fun success(value: T) {
+    sink.success(value)
+  }
+
+  fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+    sink.error(errorCode, errorMessage, errorDetails)
+  }
+  
+  fun endOfStream() { 
+    sink.endOfStream()
+  }
+}
+      
+abstract class StreamTaskEventsStreamHandler : PigeonEventChannelWrapper<TaskEvent> {
+  companion object {
+    fun register(messenger: BinaryMessenger, streamHandler: StreamTaskEventsStreamHandler, instanceName: String = "") {
+      var channelName: String = "dev.flutter.pigeon.file_flow.FileFlowEventChannelApi.streamTaskEvents"
+      if (instanceName.isNotEmpty()) {
+        channelName += ".$instanceName"
+      }
+      val internalStreamHandler = PigeonStreamHandler<TaskEvent>(streamHandler)
+      EventChannel(messenger, channelName, FlowPigeonMethodCodec).setStreamHandler(internalStreamHandler)
     }
   }
 }
+      

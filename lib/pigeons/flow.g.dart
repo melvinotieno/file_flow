@@ -25,7 +25,7 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   return <Object?>[error.code, error.message, error.details];
 }
 
-///
+/// Represents the base storage directory for task files.
 enum StorageDirectory {
   applicationDocuments,
   downloads,
@@ -41,7 +41,7 @@ enum TaskType {
 
 /// The state of a task.
 enum TaskState {
-  /// Task is pending.
+  ///
   pending,
   /// Task is running.
   running,
@@ -55,44 +55,28 @@ enum TaskState {
   canceled,
 }
 
-class TaskProgress {
-  TaskProgress({
-    required this.progress,
+class ProxyConfig {
+  ProxyConfig({
+    required this.address,
+    required this.port,
   });
 
-  int progress;
+  String address;
+
+  int port;
 
   Object encode() {
     return <Object?>[
-      progress,
+      address,
+      port,
     ];
   }
 
-  static TaskProgress decode(Object result) {
+  static ProxyConfig decode(Object result) {
     result as List<Object?>;
-    return TaskProgress(
-      progress: result[0]! as int,
-    );
-  }
-}
-
-class TaskStatus {
-  TaskStatus({
-    required this.state,
-  });
-
-  TaskState state;
-
-  Object encode() {
-    return <Object?>[
-      state,
-    ];
-  }
-
-  static TaskStatus decode(Object result) {
-    result as List<Object?>;
-    return TaskStatus(
-      state: result[0]! as TaskState,
+    return ProxyConfig(
+      address: result[0]! as String,
+      port: result[1]! as int,
     );
   }
 }
@@ -104,11 +88,11 @@ class Task {
     required this.method,
     required this.headers,
     required this.timeout,
-    this.proxyAddress,
-    this.proxyPort,
-    this.filename,
-    this.directory,
+    this.proxy,
     required this.baseDirectory,
+    this.directory,
+    this.filename,
+    required this.group,
     required this.type,
   });
 
@@ -122,15 +106,15 @@ class Task {
 
   int timeout;
 
-  String? proxyAddress;
+  ProxyConfig? proxy;
 
-  int? proxyPort;
-
-  String? filename;
+  StorageDirectory baseDirectory;
 
   String? directory;
 
-  StorageDirectory baseDirectory;
+  String? filename;
+
+  String group;
 
   TaskType type;
 
@@ -141,11 +125,11 @@ class Task {
       method,
       headers,
       timeout,
-      proxyAddress,
-      proxyPort,
-      filename,
-      directory,
+      proxy,
       baseDirectory,
+      directory,
+      filename,
+      group,
       type,
     ];
   }
@@ -158,12 +142,67 @@ class Task {
       method: result[2]! as String,
       headers: (result[3] as Map<Object?, Object?>?)!.cast<String, String>(),
       timeout: result[4]! as int,
-      proxyAddress: result[5] as String?,
-      proxyPort: result[6] as int?,
-      filename: result[7] as String?,
-      directory: result[8] as String?,
-      baseDirectory: result[9]! as StorageDirectory,
+      proxy: result[5] as ProxyConfig?,
+      baseDirectory: result[6]! as StorageDirectory,
+      directory: result[7] as String?,
+      filename: result[8] as String?,
+      group: result[9]! as String,
       type: result[10]! as TaskType,
+    );
+  }
+}
+
+sealed class TaskEvent {
+}
+
+class TaskProgress extends TaskEvent {
+  TaskProgress({
+    required this.taskId,
+    required this.progress,
+  });
+
+  String taskId;
+
+  int progress;
+
+  Object encode() {
+    return <Object?>[
+      taskId,
+      progress,
+    ];
+  }
+
+  static TaskProgress decode(Object result) {
+    result as List<Object?>;
+    return TaskProgress(
+      taskId: result[0]! as String,
+      progress: result[1]! as int,
+    );
+  }
+}
+
+class TaskStatus extends TaskEvent {
+  TaskStatus({
+    required this.taskId,
+    required this.state,
+  });
+
+  String taskId;
+
+  TaskState state;
+
+  Object encode() {
+    return <Object?>[
+      taskId,
+      state,
+    ];
+  }
+
+  static TaskStatus decode(Object result) {
+    result as List<Object?>;
+    return TaskStatus(
+      taskId: result[0]! as String,
+      state: result[1]! as TaskState,
     );
   }
 }
@@ -185,14 +224,17 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is TaskState) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    }    else if (value is TaskProgress) {
+    }    else if (value is ProxyConfig) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    }    else if (value is TaskStatus) {
+    }    else if (value is Task) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is Task) {
+    }    else if (value is TaskProgress) {
       buffer.putUint8(134);
+      writeValue(buffer, value.encode());
+    }    else if (value is TaskStatus) {
+      buffer.putUint8(135);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -212,16 +254,20 @@ class _PigeonCodec extends StandardMessageCodec {
         final int? value = readValue(buffer) as int?;
         return value == null ? null : TaskState.values[value];
       case 132: 
-        return TaskProgress.decode(readValue(buffer)!);
+        return ProxyConfig.decode(readValue(buffer)!);
       case 133: 
-        return TaskStatus.decode(readValue(buffer)!);
-      case 134: 
         return Task.decode(readValue(buffer)!);
+      case 134: 
+        return TaskProgress.decode(readValue(buffer)!);
+      case 135: 
+        return TaskStatus.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
   }
 }
+
+const StandardMethodCodec pigeonMethodCodec = StandardMethodCodec(_PigeonCodec());
 
 class FileFlowHostApi {
   /// Constructor for [FileFlowHostApi].  The [binaryMessenger] named argument is
@@ -318,40 +364,14 @@ class FileFlowHostApi {
   }
 }
 
-abstract class FileFlowFlutterApi {
-  static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
-
-  void onProgress(String taskId, int progress);
-
-  static void setUp(FileFlowFlutterApi? api, {BinaryMessenger? binaryMessenger, String messageChannelSuffix = '',}) {
-    messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
-    {
-      final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.file_flow.FileFlowFlutterApi.onProgress$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
-      if (api == null) {
-        pigeonVar_channel.setMessageHandler(null);
-      } else {
-        pigeonVar_channel.setMessageHandler((Object? message) async {
-          assert(message != null,
-          'Argument for dev.flutter.pigeon.file_flow.FileFlowFlutterApi.onProgress was null.');
-          final List<Object?> args = (message as List<Object?>?)!;
-          final String? arg_taskId = (args[0] as String?);
-          assert(arg_taskId != null,
-              'Argument for dev.flutter.pigeon.file_flow.FileFlowFlutterApi.onProgress was null, expected non-null String.');
-          final int? arg_progress = (args[1] as int?);
-          assert(arg_progress != null,
-              'Argument for dev.flutter.pigeon.file_flow.FileFlowFlutterApi.onProgress was null, expected non-null int.');
-          try {
-            api.onProgress(arg_taskId!, arg_progress!);
-            return wrapResponse(empty: true);
-          } on PlatformException catch (e) {
-            return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
-          }
-        });
-      }
-    }
+Stream<TaskEvent> streamTaskEvents( {String instanceName = ''}) {
+  if (instanceName.isNotEmpty) {
+    instanceName = '.$instanceName';
   }
+  const EventChannel streamTaskEventsChannel =
+      EventChannel('dev.flutter.pigeon.file_flow.FileFlowEventChannelApi.streamTaskEvents', pigeonMethodCodec);
+  return streamTaskEventsChannel.receiveBroadcastStream().map((dynamic event) {
+    return event as TaskEvent;
+  });
 }
+    
