@@ -97,6 +97,13 @@ abstract class FileFlowHostApi {
   bool resume(String taskId);
 }
 
+@FlutterApi()
+abstract class FileFlowFlutterApi {
+  void updateTaskProgress(String taskId, int progress);
+
+  void updateTaskState(String taskId, TaskState state);
+}
+
 sealed class TaskEvent {}
 
 class TaskProgress extends TaskEvent {
