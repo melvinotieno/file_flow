@@ -5,6 +5,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializer
 
-@ExperimentalSerializationApi
+@OptIn(ExperimentalSerializationApi::class)
 @Serializer(forClass = Task::class)
 object TaskSerializer : KSerializer<Task>
