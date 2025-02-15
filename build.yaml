@@ -1,2 +1,10 @@
+targets:
+  $default:
+    builders:
+      pigeon_generator:
+        options:
+          dart:
+            out: "lib/src/pigeons"
+
 additional_public_assets:
   - pigeons/**
