@@ -1,35 +1,35 @@
 package com.melvinotieno.file_flow.exceptions
 
-import com.melvinotieno.file_flow.pigeons.TaskErrorCode
+import com.melvinotieno.file_flow.helpers.ErrorCode
 
 /**
  * Exception class for handling task-related errors.
  *
- * @property code the [TaskErrorCode] associated with the error.
+ * @property code the [ErrorCode] associated with the exception.
  * @property description the message describing the exception.
- * @property httpResponseCode optional HTTP response code, if any.
- * @property cause the cause of the error, if caused by another exception.
+ * @property response optional HTTP response, if any.
+ * @property cause the cause of the exception.
  */
 class FlowException : Exception {
-    val code: TaskErrorCode
+    val code: ErrorCode
     val description: String
-    val httpResponseCode: Long?
+    val response: Map<String, Any>?
 
     constructor(
-        code: TaskErrorCode, description: String, httpResponseCode: Long? = null, cause: Throwable?
+        code: ErrorCode, description: String, response: Map<String, Any>?, cause: Throwable?
     ) : super(description, cause) {
         this.code = code
         this.description = description
-        this.httpResponseCode = httpResponseCode
+        this.response = response
     }
 
     constructor(
-        code: TaskErrorCode, description: String, httpResponseCode: Long?
-    ) : this(code, description, httpResponseCode, null)
+        code: ErrorCode, description: String, response: Map<String, Any>?
+    ) : this(code, description, response, null)
 
     constructor(
-        code: TaskErrorCode, description: String, cause: Throwable?
+        code: ErrorCode, description: String, cause: Throwable?
     ) : this(code, description, null, cause)
 
-    constructor(code: TaskErrorCode, description: String) : this(code, description, null, null)
+    constructor(code: ErrorCode, description: String) : this(code, description, null, null)
 }
