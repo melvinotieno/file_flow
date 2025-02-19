@@ -4,77 +4,81 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
+import com.melvinotieno.file_flow.exceptions.FlowException
+import com.melvinotieno.file_flow.helpers.TaskExceptionSerializer
 import com.melvinotieno.file_flow.helpers.TaskSerializer
-import com.melvinotieno.file_flow.pigeons.Task
+import com.melvinotieno.file_flow.models.FlowResult
+import com.melvinotieno.file_flow.pigeons.ErrorCode
+import com.melvinotieno.file_flow.pigeons.FlowTask
+import com.melvinotieno.file_flow.pigeons.TaskException
 import com.melvinotieno.file_flow.pigeons.TaskState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
+import java.net.MalformedURLException
 import java.net.Proxy
 import java.net.URL
 
 abstract class TaskWorker(
-    protected val context: Context,
-    params: WorkerParameters
+    protected val context: Context, params: WorkerParameters
 ) : CoroutineWorker(context, params) {
-
     companion object {
         const val TAG = "TaskWorker"
         const val KEY_TASK = "Task"
-        const val BUFFER_SIZE = 2 shl 12
+        const val KEY_STATE = "TaskState"
+        const val KEY_EXCEPTION = "TaskException"
     }
 
-    lateinit var task: Task
+    lateinit var task: FlowTask
 
-    @ExperimentalSerializationApi
     override suspend fun doWork(): Result {
-        val taskJson = inputData.getString(KEY_TASK) ?: return Result.failure()
+        val taskString = inputData.getString(KEY_TASK) ?: return Result.failure()
 
         task = try {
-            withContext(Dispatchers.Default) {
-                Json.decodeFromString<Task>(TaskSerializer, taskJson)
-            }
+            Json.decodeFromString<FlowTask>(TaskSerializer, taskString)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode task", e)
+            Log.e(TAG, "[${task.id}] Failed to decode task", e)
             return Result.failure()
         }
 
-        handleRequest()
+        setProgress(workDataOf(KEY_STATE to TaskState.RUNNING.name))
 
-        return Result.success()
-    }
+        val result = try {
+            handleRequest()
+        } catch (e: FlowException) {
+            val exception = TaskException(e.code, e.description, e.httpResponseCode).let {
+                Log.e(TAG, "[${task.id}] ${it.message}", e)
+                Json.encodeToString<TaskException>(TaskExceptionSerializer, it)
+            }
 
-    fun transferBytes(inputStream: InputStream, outputStream: OutputStream): TaskState {
-        val buffer = ByteArray(BUFFER_SIZE)
-        var bytes = inputStream.read(buffer)
-        var downloaded = 0L
-
-        while (bytes >= 0) {
-            outputStream.write(buffer, 0, bytes)
-            downloaded += bytes
-            bytes = inputStream.read(buffer)
+            return Result.failure(workDataOf(KEY_EXCEPTION to exception))
         }
 
-        return TaskState.COMPLETED
+        return Result.success(workDataOf(KEY_STATE to result.state.name))
     }
 
-    private suspend fun handleRequest(): TaskState = withContext(Dispatchers.IO) {
-        try {
-            val proxyAddress = task.proxyAddress
-            val proxyPort = task.proxyPort?.takeIf { it > 0 }
+    private val proxy: Proxy
+        get() {
+            val address = task.proxyAddress
+            val port = task.proxyPort?.toInt()
 
-            val proxy = if (!proxyAddress.isNullOrBlank() && proxyPort != null) {
-                Log.i("$TAG (${task.id})", "Using proxy $proxyAddress:$proxyPort")
-                Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyAddress, proxyPort.toInt()))
+            return if (address != null && port != null) {
+                Log.i(TAG, "[${task.id}] Using proxy: $address:$port")
+                Proxy(Proxy.Type.HTTP, InetSocketAddress(address, port))
             } else {
                 Proxy.NO_PROXY
             }
+        }
 
+    private suspend fun handleRequest(): FlowResult = withContext(Dispatchers.IO) {
+        try {
             val connection = (URL(task.url).openConnection(proxy) as HttpURLConnection).apply {
                 requestMethod = task.method
                 connectTimeout = task.timeout.toInt() * 1000
@@ -82,11 +86,38 @@ abstract class TaskWorker(
             }
 
             return@withContext processRequest(connection)
+        } catch (e: FlowException) {
+            throw e // rethrow FlowException
+        } catch (e: MalformedURLException) {
+            throw FlowException(ErrorCode.URL, e.message ?: "Invalid URL", e)
         } catch (e: Exception) {
-            Log.e("$TAG (${task.id})", "Failed to process request", e)
-            return@withContext TaskState.FAILED
+            throw FlowException(ErrorCode.CONNECTION, e.message ?: "Failed to handle request", e)
         }
     }
 
-    abstract suspend fun processRequest(connection: HttpURLConnection): TaskState
+    @Throws(FlowException::class)
+    abstract suspend fun processRequest(connection: HttpURLConnection): FlowResult
+
+    suspend fun transferBytes(
+        inputStream: InputStream,
+        outputStream: OutputStream,
+    ): TaskState = coroutineScope {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+
+        var bytes: Int
+
+        try {
+            while (inputStream.read(buffer).also { bytes = it } >= 0) {
+                if (!isActive) {
+                    return@coroutineScope TaskState.FAILED
+                }
+
+                outputStream.write(buffer, 0, bytes)
+            }
+
+            TaskState.COMPLETED
+        } catch (e: Exception) {
+            throw FlowException(ErrorCode.FILESYSTEM, e.message ?: "Failed to transfer bytes", e)
+        }
+    }
 }
