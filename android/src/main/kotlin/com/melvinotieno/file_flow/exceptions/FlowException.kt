@@ -12,5 +12,5 @@ import com.melvinotieno.file_flow.pigeons.ErrorCode
 class FlowException(
     val code: ErrorCode,
     override val message: String,
-    val httpResponseCode: String? = null
+    val httpResponseCode: Long? = null
 ) : Exception(message)
