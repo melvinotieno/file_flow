@@ -6,13 +6,15 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.melvinotieno.file_flow.exceptions.FlowException
-import com.melvinotieno.file_flow.helpers.TaskExceptionSerializer
+import com.melvinotieno.file_flow.helpers.ErrorCode
+import com.melvinotieno.file_flow.helpers.ExceptionSerializer
+import com.melvinotieno.file_flow.helpers.StateDataSerializer
 import com.melvinotieno.file_flow.helpers.TaskSerializer
 import com.melvinotieno.file_flow.models.FlowResult
-import com.melvinotieno.file_flow.pigeons.ErrorCode
 import com.melvinotieno.file_flow.pigeons.FlowTask
 import com.melvinotieno.file_flow.pigeons.TaskException
 import com.melvinotieno.file_flow.pigeons.TaskState
+import com.melvinotieno.file_flow.pigeons.TaskStateData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
@@ -33,6 +35,7 @@ abstract class TaskWorker(
         const val TAG = "TaskWorker"
         const val KEY_TASK = "Task"
         const val KEY_STATE = "TaskState"
+        const val KEY_DATA = "TaskData"
         const val KEY_EXCEPTION = "TaskException"
     }
 
@@ -53,15 +56,20 @@ abstract class TaskWorker(
         val result = try {
             handleRequest()
         } catch (e: FlowException) {
-            val exception = TaskException(e.code, e.description, e.httpResponseCode).let {
+            val exception = TaskException(e.code, e.description, e.response).let {
                 Log.e(TAG, "[${task.id}] ${it.message}", e)
-                Json.encodeToString<TaskException>(TaskExceptionSerializer, it)
+                Json.encodeToString<TaskException>(ExceptionSerializer, it)
             }
 
             return Result.failure(workDataOf(KEY_EXCEPTION to exception))
         }
 
-        return Result.success(workDataOf(KEY_STATE to result.state.name))
+        val workData = result.data?.let {
+            val data = Json.encodeToString<TaskStateData>(StateDataSerializer, it)
+            workDataOf(KEY_STATE to result.state.name, KEY_DATA to data)
+        } ?: workDataOf(KEY_STATE to result.state.name)
+
+        return Result.success(workData)
     }
 
     private val proxy: Proxy
