@@ -1,4 +1,4 @@
-import 'package:file_flow/file_flow.dart';
+import 'package:file_flow_example/examples/download_example.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -14,29 +14,25 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
           title: const Text('FileFlow Example'),
+          actions: [
+            IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
+          ],
         ),
-        body: Center(
-          child: ElevatedButton(
-            onPressed: () {
-              final task = DownloadTask(
-                url:
-                    'https://pbs.twimg.com/profile_images/1702181379855777792/1b42T8zG_normal.png',
-              );
-
-              FileFlow.download(task).start();
-            },
-            child: const Text('Download'),
-          ),
+        body: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(16.0),
+                child: DownloadExample(),
+              ),
+            ),
+          ],
         ),
       ),
     );
