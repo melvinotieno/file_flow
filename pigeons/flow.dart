@@ -125,10 +125,6 @@ enum TaskErrorCode {
 
 /// Represents an exception that occurred during a task execution.
 class TaskException {
-  /// Creates a new instance of [TaskException].
-  ///
-  /// If [rawResponse] is provided, the exception is considered to be as a
-  /// result of a failed HTTP request.
   TaskException({required this.code, required this.message, this.rawResponse});
 
   /// The error code of the exception.
@@ -137,13 +133,13 @@ class TaskException {
   /// The error message of the exception.
   final String message;
 
-  /// The response from the server that caused the exception.
+  /// The response from the server that caused the exception. If provided, the
+  /// exception is considered to be as a result of a failed HTTP request.
   final String? rawResponse;
 }
 
 /// The progress data of a task.
 class TaskProgressData {
-  /// Creates a new instance of [TaskProgressData].
   TaskProgressData({
     required this.expectedBytes,
     required this.transferredBytes,
@@ -163,7 +159,6 @@ class TaskProgressData {
 /// The data of a task that has been completed.
 // TODO: Use the proper fields for this class.
 class TaskCompleteData {
-  /// Creates a new instance of [TaskCompleteData].
   TaskCompleteData({this.path, this.mimeType, this.rawResponse});
 
   final String? path;
@@ -175,17 +170,6 @@ class TaskCompleteData {
 
 /// The task used by native code for execution.
 class FlowTask {
-  /// Creates a new instance of [FlowTask].
-  ///
-  /// The [url] is required for all tasks that are not of type
-  /// [TaskType.parallelDownload].
-  ///
-  /// The [urls] is required for tasks of type [TaskType.parallelDownload].
-  ///
-  /// The [chunks] is required for tasks of type [TaskType.parallelDownload].
-  ///
-  /// If this is a download task, then either [directoryUri] or [baseDirectory]
-  /// must be provided.
   FlowTask({
     required this.type,
     required this.id,
@@ -243,7 +227,7 @@ class FlowTask {
   /// The number of chunks to download per URL for [TaskType.parallelDownload].
   final int? chunks;
 
-  /// The directory URI for [TaskType.download] tasks.
+  /// The directory URI for download tasks.
   ///
   /// Used in place of [baseDirectory]/[directory].
   final String? directoryUri;
@@ -263,13 +247,6 @@ sealed class TaskEvent {}
 
 /// The status event of a task execution.
 class TaskStatus extends TaskEvent {
-  /// Creates a new instance of [TaskStatus].
-  ///
-  /// If [state] is [TaskState.completed], then [data] is provided.
-  ///
-  /// If [state] is [TaskState.failed], then [exception] is provided.
-  ///
-  /// Otherwise, both [data] and [exception] are `null`.
   TaskStatus({
     required this.taskId,
     required this.state,
@@ -293,7 +270,6 @@ class TaskStatus extends TaskEvent {
 
 /// The progress event of a task execution.
 class TaskProgress extends TaskEvent {
-  /// Creates a new instance of [TaskProgress].
   TaskProgress({
     required this.taskId,
     required this.progress,
