@@ -102,3 +102,58 @@ enum TaskState {
   /// The task has failed due to an error it encountered during its execution.
   failed,
 }
+
+/// The error code of a task exception.
+enum TaskErrorCode {
+  /// The error resulted from the url being invalid.
+  url,
+
+  /// A network connection error resulted in the task failing.
+  connection,
+
+  /// An error was found in the response from the server.
+  http,
+
+  /// An error occurred while writing to the filesystem.
+  filesystem,
+
+  /// The error was caused by an unknown reason.
+  unknown,
+}
+
+/// Represents an exception that occurred during a task execution.
+class TaskException {
+  /// Creates a new instance of [TaskException].
+  ///
+  /// If [rawResponse] is provided, the exception is considered to be as a
+  /// result of a failed HTTP request.
+  TaskException({required this.code, required this.message, this.rawResponse});
+
+  /// The error code of the exception.
+  final TaskErrorCode code;
+
+  /// The error message of the exception.
+  final String message;
+
+  /// The response from the server that caused the exception.
+  final String? rawResponse;
+}
+
+/// The progress data of a task.
+class TaskProgressData {
+  /// Creates a new instance of [TaskProgressData].
+  TaskProgressData({
+    required this.expectedBytes,
+    required this.transferredBytes,
+    required this.networkSpeed,
+  });
+
+  /// The total number of bytes that are expected to be transferred.
+  final int expectedBytes;
+
+  /// The number of bytes that have been transferred.
+  final int transferredBytes;
+
+  /// The network speed in bytes per second.
+  final int networkSpeed;
+}
