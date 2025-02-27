@@ -1,3 +1,5 @@
+import 'package:pigeon/pigeon.dart';
+
 /// Represents the base storage directory for task files.
 ///
 /// The temporary path and paths prefixed with `application` correspond to
@@ -173,6 +175,17 @@ class TaskCompleteData {
 
 /// The task used by native code for execution.
 class FlowTask {
+  /// Creates a new instance of [FlowTask].
+  ///
+  /// The [url] is required for all tasks that are not of type
+  /// [TaskType.parallelDownload].
+  ///
+  /// The [urls] is required for tasks of type [TaskType.parallelDownload].
+  ///
+  /// The [chunks] is required for tasks of type [TaskType.parallelDownload].
+  ///
+  /// If this is a download task, then either [directoryUri] or [baseDirectory]
+  /// must be provided.
   FlowTask({
     required this.type,
     required this.id,
@@ -186,6 +199,10 @@ class FlowTask {
     this.url,
     this.urls,
     this.chunks,
+    this.directoryUri,
+    this.baseDirectory,
+    this.directory,
+    this.filename,
   });
 
   /// The type of task to execute.
@@ -225,6 +242,20 @@ class FlowTask {
 
   /// The number of chunks to download per URL for [TaskType.parallelDownload].
   final int? chunks;
+
+  /// The directory URI for [TaskType.download] tasks.
+  ///
+  /// Used in place of [baseDirectory]/[directory].
+  final String? directoryUri;
+
+  /// The base directory for the task files.
+  final StorageDirectory? baseDirectory;
+
+  /// The child directory within the base directory for the task files.
+  final String? directory;
+
+  /// The filename of the task file.
+  final String? filename;
 }
 
 /// Represents a task event.
@@ -277,4 +308,20 @@ class TaskProgress extends TaskEvent {
 
   /// The progress data of the task.
   final TaskProgressData data;
+}
+
+@HostApi()
+abstract class FileFlowHostApi {
+  bool enqueue(FlowTask task);
+
+  bool cancelWithId(String taskId);
+
+  bool cancelWithGroup(String group);
+}
+
+@FlutterApi()
+abstract class FileFlowFlutterApi {
+  void onStatusUpdate(TaskStatus taskStatus);
+
+  void onProgressUpdate(TaskProgress taskProgress);
 }
