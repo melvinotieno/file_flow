@@ -1,4 +1,5 @@
 import 'config.dart';
+import 'picker.dart';
 
 class FileFlow {
   FileFlow._();
@@ -33,4 +34,7 @@ class FileFlow {
   static void configure(FileFlowConfig config) {
     _config = config;
   }
+
+  /// Returns the [Picker] instance to use for picking a directory or file(s).
+  static Picker get picker => Picker();
 }
