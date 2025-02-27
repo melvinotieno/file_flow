@@ -1,131 +1,104 @@
-import 'package:pigeon/pigeon.dart';
-
-class ProxyConfig {
-  ProxyConfig({
-    required this.address,
-    required this.port,
-  });
-
-  final String address;
-
-  final int port;
-}
-
 /// Represents the base storage directory for task files.
+///
+/// The temporary path and paths prefixed with `application` correspond to
+/// those provided by the `path_provider` package. For more details, see:
+/// https://pub.dev/packages/path_provider
+///
+/// The remaining directories are visible to the user i.e. they can easily
+/// access the files stored in these directories from the file manager.
 enum StorageDirectory {
+  /// Path to a directory where the application may place application-specific
+  /// cache files.
+  ///
+  /// If this directory does not exist, it is created automatically.
+  applicationCache,
+
+  /// Path to a directory where the application may place data that is
+  /// user-generated, or that cannot otherwise be recreated by your application.
+  ///
+  /// Consider using another path, such as [applicationSupport], or
+  /// [applicationCache], if the data is not user-generated.
   applicationDocuments,
 
+  /// Path to the directory where application can store files that are
+  /// persistent, backed up, and not visible to the user, such as sqlite.db.
+  ///
+  /// This directory is only supported on iOS and macOS.
+  applicationLibrary,
+
+  /// Path to a directory where the application may place application support
+  /// files.
+  ///
+  /// If this directory does not exist, it is created automatically.
+  ///
+  /// Use this for files you don't want exposed to the user. Your app should not
+  /// use this directory for user data files.
+  applicationSupport,
+
+  /// Path to the temporary directory on the device that is not backed up and is
+  /// suitable for storing caches of downloaded files.
+  ///
+  /// Files in this directory may be cleared at any time. This does *not* return
+  /// a new temporary directory. Instead, the caller is responsible for creating
+  /// (and cleaning up) files or directories within this directory. This
+  /// directory is scoped to the calling application.
+  temporary,
+
+  /// Path to downloaded files.
   downloads,
+
+  /// Path to image files.
+  images,
+
+  /// Path to video files.
+  video,
+
+  /// Path to audio files.
+  audio,
+
+  /// Path to general files that do not fit the other categories. This is only
+  /// available on Android.
+  files,
 }
 
-/// The type of a task.
+/// Defines what type a task is.
 enum TaskType {
-  /// Task is a download task.
+  /// A task that downloads a file from a specified URL.
   download,
 
-  /// Task is an upload task.
+  /// A task that uploads a file to a specified URL.
   upload,
+
+  /// A task that uploads multiple files to a specified URL.
+  multiUpload,
+
+  /// A task that downloads a file in chunks from one or more URLs.
+  parallelDownload,
 }
 
 /// The state of a task.
 enum TaskState {
+  /// The task has been enqueued waiting to be executed.
   ///
+  /// A task can remain in this state until certain constraints, if any, are
+  /// met. For example, a task may be waiting for a network connection to be
+  /// established before it can be executed.
   pending,
 
-  /// Task is running.
+  /// The task is being executed. For example, if the task is a `DownloadTask`,
+  /// this state indicates that the task is currently downloading the file.
   running,
 
-  /// Task is paused.
+  /// The task has been paused and may be resumed.
   paused,
 
-  /// Task has completed successfully.
+  /// The task has been canceled. This can either be intentionally by the user
+  /// or by the system.
+  canceled,
+
+  /// The task has been completed successfully.
   completed,
 
-  /// Task has failed.
+  /// The task has failed due to an error it encountered during its execution.
   failed,
-
-  // retrying, TODO: implement retrying state
-
-  /// Task has been canceled.
-  canceled,
-}
-
-class Task {
-  Task({
-    required this.id,
-    required this.url,
-    required this.method,
-    required this.headers,
-    required this.timeout,
-    this.proxy,
-    required this.baseDirectory,
-    this.directory,
-    this.filename,
-    required this.group,
-    required this.type,
-  });
-
-  final String id;
-
-  final String url;
-
-  final String method;
-
-  final Map<String, String> headers;
-
-  final int timeout;
-
-  final ProxyConfig? proxy;
-
-  final StorageDirectory baseDirectory;
-
-  final String? directory;
-
-  final String? filename;
-
-  final String group;
-
-  final TaskType type;
-}
-
-@HostApi()
-abstract class FileFlowHostApi {
-  bool enqueue(Task task);
-
-  bool pause(String taskId);
-
-  bool resume(String taskId);
-}
-
-@FlutterApi()
-abstract class FileFlowFlutterApi {
-  void updateTaskProgress(String taskId, int progress);
-
-  void updateTaskState(String taskId, TaskState state);
-}
-
-sealed class TaskEvent {}
-
-class TaskProgress extends TaskEvent {
-  TaskProgress({
-    required this.taskId,
-    required this.progress,
-  });
-
-  final String taskId;
-
-  final int progress;
-}
-
-class TaskStatus extends TaskEvent {
-  TaskStatus({required this.taskId, required this.state});
-
-  final String taskId;
-
-  final TaskState state;
-}
-
-@EventChannelApi()
-abstract class FileFlowEventChannelApi {
-  TaskEvent streamTaskEvents();
 }
