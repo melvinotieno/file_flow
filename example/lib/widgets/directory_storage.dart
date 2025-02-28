@@ -26,7 +26,7 @@ class DirectoryStorage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Storage', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 16.0),
         InputDecorator(
           decoration: const InputDecoration(
             labelText: 'Base Directory',
