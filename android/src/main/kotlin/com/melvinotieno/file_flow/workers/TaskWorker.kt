@@ -6,20 +6,23 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.melvinotieno.file_flow.exceptions.FlowException
-import com.melvinotieno.file_flow.helpers.ErrorCode
 import com.melvinotieno.file_flow.helpers.ExceptionSerializer
-import com.melvinotieno.file_flow.helpers.StateDataSerializer
+import com.melvinotieno.file_flow.helpers.ProgressDataSerializer
 import com.melvinotieno.file_flow.helpers.TaskSerializer
-import com.melvinotieno.file_flow.models.FlowResult
 import com.melvinotieno.file_flow.pigeons.FlowTask
+import com.melvinotieno.file_flow.pigeons.TaskErrorCode
 import com.melvinotieno.file_flow.pigeons.TaskException
+import com.melvinotieno.file_flow.pigeons.TaskProgressData
 import com.melvinotieno.file_flow.pigeons.TaskState
-import com.melvinotieno.file_flow.pigeons.TaskStateData
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
@@ -36,96 +39,153 @@ abstract class TaskWorker(
         const val KEY_TASK = "Task"
         const val KEY_STATE = "TaskState"
         const val KEY_DATA = "TaskData"
+        const val KEY_PROGRESS = "TaskProgress"
         const val KEY_EXCEPTION = "TaskException"
+
+        private const val PROGRESS_UPDATE_INTERVAL_MS = 2000L // 2 seconds
+        private const val PROGRESS_UPDATE_THRESHOLD_BYTES = 1024 * 1024 // 1MB
     }
 
     lateinit var task: FlowTask
 
-    override suspend fun doWork(): Result {
-        val taskString = inputData.getString(KEY_TASK) ?: return Result.failure()
-
-        task = try {
-            Json.decodeFromString<FlowTask>(TaskSerializer, taskString)
-        } catch (e: Exception) {
-            Log.e(TAG, "[${task.id}] Failed to decode task", e)
-            return Result.failure()
-        }
-
-        setProgress(workDataOf(KEY_STATE to TaskState.RUNNING.name))
-
-        val result = try {
-            handleRequest()
-        } catch (e: FlowException) {
-            val exception = TaskException(e.code, e.description, e.response).let {
-                Log.e(TAG, "[${task.id}] ${it.message}", e)
-                Json.encodeToString<TaskException>(ExceptionSerializer, it)
-            }
-
-            return Result.failure(workDataOf(KEY_EXCEPTION to exception))
-        }
-
-        val workData = result.data?.let {
-            val data = Json.encodeToString<TaskStateData>(StateDataSerializer, it)
-            workDataOf(KEY_STATE to result.state.name, KEY_DATA to data)
-        } ?: workDataOf(KEY_STATE to result.state.name)
-
-        return Result.success(workData)
+    val tempDirPath: String by lazy {
+        "${context.cacheDir.path}/com.melvinotieno.file_flow".also { File(it).mkdirs() }
     }
 
-    private val proxy: Proxy
-        get() {
-            val address = task.proxyAddress
-            val port = task.proxyPort?.toInt()
-
-            return if (address != null && port != null) {
+    val proxy: Proxy by lazy {
+        task.proxyAddress?.let { address ->
+            task.proxyPort?.toInt()?.let { port ->
                 Log.i(TAG, "[${task.id}] Using proxy: $address:$port")
                 Proxy(Proxy.Type.HTTP, InetSocketAddress(address, port))
-            } else {
-                Proxy.NO_PROXY
             }
-        }
+        } ?: Proxy.NO_PROXY
+    }
 
-    private suspend fun handleRequest(): FlowResult = withContext(Dispatchers.IO) {
+    var resumedBytes = 0L
+    var transferredBytes = 0L
+
+    private var bytesSinceLastUpdate = 0L
+    private var lastProgressUpdateTime = 0L
+    private var networkSpeed = 0L
+
+    override suspend fun doWork(): Result {
+        task = decodeTask(inputData.getString(KEY_TASK)) ?: return Result.failure()
+
+        // Update the task's state to running
+        setProgress(workDataOf(KEY_STATE to TaskState.RUNNING.name))
+
+        // Start network speed calculation
+        val networkSpeedJob = CoroutineScope(Dispatchers.IO).launch { calculateNetworkSpeed() }
+
+        return try {
+            handleRequest().let { (taskState, taskData) ->
+                Result.success(workDataOf(KEY_STATE to taskState.name, KEY_DATA to taskData))
+            }
+        } catch (e: FlowException) {
+            handleException(e)
+        } catch (e: Exception) {
+            handleException(FlowException(TaskErrorCode.UNKNOWN, e.message ?: "unknown error", e))
+        } finally {
+            networkSpeedJob.cancel()
+        }
+    }
+
+    open suspend fun handleRequest(): Pair<TaskState, String?> = withContext(Dispatchers.IO) {
         try {
-            val connection = (URL(task.url).openConnection(proxy) as HttpURLConnection).apply {
+            with(URL(task.url).openConnection(proxy) as HttpURLConnection) {
                 requestMethod = task.method
                 connectTimeout = task.timeout.toInt() * 1000
                 task.headers.forEach { (key, value) -> setRequestProperty(key, value) }
-            }
 
-            return@withContext processRequest(connection)
+                return@with processRequest(this)
+            }
         } catch (e: FlowException) {
             throw e // rethrow FlowException
         } catch (e: MalformedURLException) {
-            throw FlowException(ErrorCode.URL, e.message ?: "Invalid URL", e)
+            throw FlowException(TaskErrorCode.URL, e.message ?: "invalid url", e)
         } catch (e: Exception) {
-            throw FlowException(ErrorCode.CONNECTION, e.message ?: "Failed to handle request", e)
+            // Assumes all other exceptions are connection related
+            throw FlowException(TaskErrorCode.CONNECTION, e.message ?: "connection error", e)
         }
     }
 
-    @Throws(FlowException::class)
-    abstract suspend fun processRequest(connection: HttpURLConnection): FlowResult
+    abstract suspend fun processRequest(connection: HttpURLConnection): Pair<TaskState, String?>
 
     suspend fun transferBytes(
         inputStream: InputStream,
         outputStream: OutputStream,
-    ): TaskState = coroutineScope {
+        contentLength: Long
+    ): TaskState = withContext(Dispatchers.IO) {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        val expectedBytes = contentLength + resumedBytes
 
-        var bytes: Int
+        var readBytes: Int
 
         try {
-            while (inputStream.read(buffer).also { bytes = it } >= 0) {
+            while (inputStream.read(buffer).also { readBytes = it } >= 0) {
                 if (!isActive) {
-                    return@coroutineScope TaskState.FAILED
+                    return@withContext TaskState.FAILED
                 }
 
-                outputStream.write(buffer, 0, bytes)
+                outputStream.write(buffer, 0, readBytes)
+                sendTaskProgress(readBytes, expectedBytes)
             }
-
             TaskState.COMPLETED
         } catch (e: Exception) {
-            throw FlowException(ErrorCode.FILESYSTEM, e.message ?: "Failed to transfer bytes", e)
+            throw FlowException(TaskErrorCode.TRANSFER, e.message ?: "transfer error", e)
         }
+    }
+
+    suspend fun sendTaskProgress(readBytes: Int, expectedBytes: Long) {
+        transferredBytes += readBytes
+        bytesSinceLastUpdate += readBytes
+
+        val currentTime = System.nanoTime()
+        val elapsedTime = currentTime - lastProgressUpdateTime
+
+        val shouldUpdate = if (expectedBytes < PROGRESS_UPDATE_THRESHOLD_BYTES) {
+            elapsedTime >= PROGRESS_UPDATE_INTERVAL_MS * 1000000
+        } else {
+            bytesSinceLastUpdate >= PROGRESS_UPDATE_THRESHOLD_BYTES
+        }
+
+        if (shouldUpdate) {
+            val progress = (transferredBytes.toDouble() / expectedBytes * 100).toInt()
+
+            val data = TaskProgressData(expectedBytes, transferredBytes, networkSpeed).let {
+                Json.encodeToString<TaskProgressData>(ProgressDataSerializer, it)
+            }
+
+            setProgress(workDataOf(KEY_PROGRESS to progress, KEY_DATA to data))
+
+            lastProgressUpdateTime = currentTime
+            bytesSinceLastUpdate = 0L
+        }
+    }
+
+    private fun decodeTask(taskString: String?): FlowTask? = taskString?.let {
+        try {
+            Json.decodeFromString<FlowTask>(TaskSerializer, it)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decode task: $it", e)
+            null
+        }
+    }
+
+    private suspend fun calculateNetworkSpeed() = coroutineScope {
+        while (isActive) {
+            val startBytes = transferredBytes
+            delay(1000) // Update networkSpeed every second
+            val endBytes = transferredBytes
+            networkSpeed = endBytes - startBytes
+        }
+    }
+
+    private fun handleException(e: FlowException): Result {
+        val exception = TaskException(e.code, e.description, e.response).let {
+            Log.e(TAG, "[${task.id}] ${it.message}", e)
+            Json.encodeToString<TaskException>(ExceptionSerializer, it)
+        }
+        return Result.failure(workDataOf(KEY_EXCEPTION to exception))
     }
 }
