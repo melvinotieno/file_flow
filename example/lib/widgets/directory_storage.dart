@@ -1,61 +1,56 @@
 import 'package:file_flow/file_flow.dart';
-import 'package:file_flow_example/widgets/selector_buttons.dart';
+import 'package:file_flow_example/utilities.dart';
 import 'package:flutter/material.dart';
 
 class DirectoryStorage extends StatelessWidget {
-  DirectoryStorage({
+  const DirectoryStorage({
     super.key,
+    required this.usePicker,
+    required this.onUsePicker,
     required this.baseDirectory,
     required this.onBaseDirectoryChanged,
     required this.directoryController,
     required this.filenameController,
-  }) {
-    _initializeStorageLists();
-  }
+  });
 
-  /// The selected base directory.
-  final StorageDirectory baseDirectory;
-
-  /// Callback for when the base directory is selected.
-  final ValueChanged<StorageDirectory> onBaseDirectoryChanged;
-
-  /// Controller for the directory text field.
+  final bool usePicker;
+  final ValueChanged<bool?> onUsePicker;
+  final StorageDirectory? baseDirectory;
+  final ValueChanged<StorageDirectory?> onBaseDirectoryChanged;
   final TextEditingController directoryController;
-
-  /// Controller for the filename text field.
   final TextEditingController filenameController;
-
-  late final List<StorageDirectory> _sharedStorage;
-  late final List<StorageDirectory> _privateStorage;
-
-  void _initializeStorageLists() {
-    _sharedStorage = StorageDirectory.values
-        .where((element) => element.isSharedStorage)
-        .toList();
-    _privateStorage = StorageDirectory.values
-        .where((element) => !element.isSharedStorage)
-        .toList();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Storage', style: theme.textTheme.titleMedium),
-        SelectorButtons(
-          values: _privateStorage,
-          selected: baseDirectory,
-          onSelected: onBaseDirectoryChanged,
-          crossAxisCount: 2,
-        ),
-        Text('Shared Storage', style: theme.textTheme.titleSmall),
-        SelectorButtons(
-          values: _sharedStorage,
-          selected: baseDirectory,
-          onSelected: onBaseDirectoryChanged,
+        Text('Storage', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8.0),
+        InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'Base Directory',
+            contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
+            border: OutlineInputBorder(),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<StorageDirectory?>(
+              isExpanded: true,
+              value: baseDirectory,
+              items: [
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('None'),
+                ),
+                for (final value in StorageDirectory.values)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(getNameFromEnum(value)),
+                  ),
+              ],
+              onChanged: onBaseDirectoryChanged,
+            ),
+          ),
         ),
         Row(
           children: [
@@ -73,6 +68,21 @@ class DirectoryStorage extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        InkWell(
+          onTap: () => onUsePicker(!usePicker),
+          highlightColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Use Picker'),
+              Checkbox(
+                value: usePicker,
+                onChanged: onUsePicker,
+              ),
+            ],
+          ),
         ),
       ],
     );
