@@ -22,10 +22,19 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: ThemeData(
+        appBarTheme: const AppBarTheme(
+          elevation: 0.0,
+          scrolledUnderElevation: 0.0,
+          backgroundColor: Colors.white,
+        ),
+        scaffoldBackgroundColor: Colors.white,
+      ),
       home: Scaffold(
         appBar: AppBar(
           title: const Text('FileFlow Example'),
           actions: [
+            IconButton(icon: const Icon(Icons.download), onPressed: () {}),
             IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
           ],
         ),
