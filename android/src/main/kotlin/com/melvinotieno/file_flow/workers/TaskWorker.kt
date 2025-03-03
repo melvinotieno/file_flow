@@ -6,13 +6,14 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.melvinotieno.file_flow.exceptions.FlowException
-import com.melvinotieno.file_flow.helpers.ExceptionSerializer
 import com.melvinotieno.file_flow.helpers.ProgressDataSerializer
-import com.melvinotieno.file_flow.helpers.TaskSerializer
-import com.melvinotieno.file_flow.pigeons.FlowTask
+import com.melvinotieno.file_flow.helpers.encode
+import com.melvinotieno.file_flow.helpers.decode
+import com.melvinotieno.file_flow.pigeons.Task
 import com.melvinotieno.file_flow.pigeons.TaskErrorCode
 import com.melvinotieno.file_flow.pigeons.TaskException
 import com.melvinotieno.file_flow.pigeons.TaskProgressData
+import com.melvinotieno.file_flow.pigeons.TaskResumeData
 import com.melvinotieno.file_flow.pigeons.TaskState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ import java.net.InetSocketAddress
 import java.net.MalformedURLException
 import java.net.Proxy
 import java.net.URL
+import java.util.Collections
 
 abstract class TaskWorker(
     protected val context: Context, params: WorkerParameters
@@ -37,6 +39,7 @@ abstract class TaskWorker(
     companion object {
         const val TAG = "TaskWorker"
         const val KEY_TASK = "Task"
+        const val KEY_RESUME = "TaskResume"
         const val KEY_STATE = "TaskState"
         const val KEY_DATA = "TaskData"
         const val KEY_PROGRESS = "TaskProgress"
@@ -44,9 +47,13 @@ abstract class TaskWorker(
 
         private const val PROGRESS_UPDATE_INTERVAL_MS = 2000L // 2 seconds
         private const val PROGRESS_UPDATE_THRESHOLD_BYTES = 1024 * 1024 // 1MB
+
+        private val pausedTasks = Collections.synchronizedSet(mutableSetOf<String>())
+
+        fun pauseTask(taskId: String) = pausedTasks.add(taskId)
     }
 
-    lateinit var task: FlowTask
+    lateinit var task: Task
 
     val tempDirPath: String by lazy {
         "${context.cacheDir.path}/com.melvinotieno.file_flow".also { File(it).mkdirs() }
@@ -61,6 +68,8 @@ abstract class TaskWorker(
         } ?: Proxy.NO_PROXY
     }
 
+    var resumeData: TaskResumeData? = null
+
     var resumedBytes = 0L
     var transferredBytes = 0L
 
@@ -68,8 +77,12 @@ abstract class TaskWorker(
     private var lastProgressUpdateTime = 0L
     private var networkSpeed = 0L
 
+    protected val isPaused: Boolean
+        get() = pausedTasks.contains(task.id)
+
     override suspend fun doWork(): Result {
-        task = decodeTask(inputData.getString(KEY_TASK)) ?: return Result.failure()
+        task = Task.decode(inputData.getString(KEY_TASK)) ?: return Result.failure()
+        resumeData = TaskResumeData.decode(inputData.getString(KEY_RESUME))
 
         // Update the task's state to running
         setProgress(workDataOf(KEY_STATE to TaskState.RUNNING.name))
@@ -111,6 +124,8 @@ abstract class TaskWorker(
 
     abstract suspend fun processRequest(connection: HttpURLConnection): Pair<TaskState, String?>
 
+    abstract fun cleanup()
+
     suspend fun transferBytes(
         inputStream: InputStream,
         outputStream: OutputStream,
@@ -125,6 +140,10 @@ abstract class TaskWorker(
             while (inputStream.read(buffer).also { readBytes = it } >= 0) {
                 if (!isActive) {
                     return@withContext TaskState.FAILED
+                }
+
+                if (isPaused) {
+                    return@withContext TaskState.PAUSED
                 }
 
                 outputStream.write(buffer, 0, readBytes)
@@ -163,15 +182,6 @@ abstract class TaskWorker(
         }
     }
 
-    private fun decodeTask(taskString: String?): FlowTask? = taskString?.let {
-        try {
-            Json.decodeFromString<FlowTask>(TaskSerializer, it)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode task: $it", e)
-            null
-        }
-    }
-
     private suspend fun calculateNetworkSpeed() = coroutineScope {
         while (isActive) {
             val startBytes = transferredBytes
@@ -184,7 +194,7 @@ abstract class TaskWorker(
     private fun handleException(e: FlowException): Result {
         val exception = TaskException(e.code, e.description, e.response).let {
             Log.e(TAG, "[${task.id}] ${it.message}", e)
-            Json.encodeToString<TaskException>(ExceptionSerializer, it)
+            it.encode()
         }
         return Result.failure(workDataOf(KEY_EXCEPTION to exception))
     }
