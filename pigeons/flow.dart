@@ -274,19 +274,27 @@ sealed class TaskEvent {}
 class TaskStatus extends TaskEvent {
   TaskStatus({
     required this.taskId,
+    required this.taskGroup,
     required this.state,
-    this.data,
+    this.completeData,
+    this.resumeData,
     this.exception,
   });
 
-  // The task id.
+  /// The task id.
   final String taskId;
+
+  /// The task group.
+  final String taskGroup;
 
   /// The current state of the task.
   final TaskState state;
 
   /// The data associated with a [TaskState.completed] state.
-  final TaskCompleteData? data;
+  final TaskCompleteData? completeData;
+
+  /// The data associated with a [TaskState.paused] state.
+  final TaskResumeData? resumeData;
 
   /// The exception that occurred during the task execution. This is only
   /// provided if the task state is [TaskState.failed].
@@ -297,12 +305,16 @@ class TaskStatus extends TaskEvent {
 class TaskProgress extends TaskEvent {
   TaskProgress({
     required this.taskId,
+    required this.taskGroup,
     required this.progress,
     required this.data,
   });
 
-  // The task id.
+  /// The task id.
   final String taskId;
+
+  /// The task group.
+  final String taskGroup;
 
   /// The progress of the task.
   final double progress;
