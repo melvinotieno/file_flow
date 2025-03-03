@@ -107,7 +107,7 @@ enum TaskState {
 
 /// The error code of a task exception.
 enum TaskErrorCode {
-  /// The error resulted from the url being invalid.
+  /// The error resulted from the url(s) being invalid.
   url,
 
   /// A network connection error resulted in the task failing.
@@ -115,6 +115,9 @@ enum TaskErrorCode {
 
   /// An error was found in the response from the server.
   http,
+
+  /// The error resulted during the file transfer process.
+  transfer,
 
   /// An error occurred while writing to the filesystem.
   filesystem,
@@ -156,21 +159,43 @@ class TaskProgressData {
   final int networkSpeed;
 }
 
+/// The data of a task that has been paused.
+class TaskResumeData {
+  TaskResumeData({
+    required this.taskString,
+    required this.tempPath,
+    required this.transferredBytes,
+  });
+
+  /// The string representation of the task.
+  final String taskString;
+
+  /// The temporary path of the task file.
+  final String tempPath;
+
+  /// The number of bytes that have been transferred.
+  final int transferredBytes;
+}
+
 /// The data of a task that has been completed.
-// TODO: Use the proper fields for this class.
 class TaskCompleteData {
   TaskCompleteData({this.path, this.mimeType, this.rawResponse});
 
+  /// The path of the task file.
+  ///
+  /// This is the path to the file that was downloaded or uploaded.
   final String? path;
 
+  /// The MIME type of the task file.
   final String? mimeType;
 
+  /// The server response of the url request.
   final String? rawResponse;
 }
 
 /// The task used by native code for execution.
-class FlowTask {
-  FlowTask({
+class Task {
+  Task({
     required this.type,
     required this.id,
     required this.group,
@@ -254,7 +279,7 @@ class TaskStatus extends TaskEvent {
     this.exception,
   });
 
-  // TODO: taskId or FlowTask object?
+  // The task id.
   final String taskId;
 
   /// The current state of the task.
@@ -276,7 +301,7 @@ class TaskProgress extends TaskEvent {
     required this.data,
   });
 
-  // TODO: taskId or FlowTask object?
+  // The task id.
   final String taskId;
 
   /// The progress of the task.
@@ -288,11 +313,25 @@ class TaskProgress extends TaskEvent {
 
 @HostApi()
 abstract class FileFlowHostApi {
-  bool enqueue(FlowTask task);
+  /// Enqueues a task for execution.
+  ///
+  /// Returns `true` if the task was successfully enqueued; otherwise, `false`.
+  bool enqueue(Task task);
 
+  /// Pauses a task with the specified id.
+  ///
+  /// Returns `true` if the task was successfully paused; otherwise, `false`.
+  bool pauseWithId(String taskId);
+
+  /// Resumes a task with the specified resume data.
+  ///
+  /// Returns `true` if the task was successfully resumed; otherwise, `false`.
+  bool resume(TaskResumeData resumeData);
+
+  /// Cancels a task with the specified id.
+  ///
+  /// Returns `true` if the task was successfully canceled; otherwise, `false`.
   bool cancelWithId(String taskId);
-
-  bool cancelWithGroup(String group);
 }
 
 @FlutterApi()
