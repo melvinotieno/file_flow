@@ -75,6 +75,6 @@ fun StorageDirectory.getPath(context: Context): String {
  * @return The relative path of the task directory.
  */
 fun Task.getRelativePath(context: Context): String {
-    val basePath = this.baseDirectory!!.getPath(context)
+    val basePath = this.baseDirectory.getPath(context)
     return if (this.directory.isNullOrEmpty()) basePath else "${basePath}/${this.directory}"
 }
