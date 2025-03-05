@@ -10,10 +10,11 @@
 /// If the `params` map is empty, the `url` is returned as is.
 ///
 /// Example:
+///
 /// ```dart
 /// final url = urlWithQueryParams('https://example.com', {
-///  'key1': 'value1',
-///  'key2': 'value2',
+///   'key1': 'value1',
+///   'key2': 'value2',
 /// });
 ///
 /// print(url); // https://example.com?key1=value1&key2=value2

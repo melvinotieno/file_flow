@@ -33,16 +33,16 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is TaskException) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is TaskCompleteData) {
+    }    else if (value is TaskProgressData) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
     }    else if (value is TaskResumeData) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is TaskProgressData) {
+    }    else if (value is TaskCompleteData) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is FlowTask) {
+    }    else if (value is Task) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
     }    else if (value is TaskStatus) {
@@ -74,13 +74,13 @@ class _PigeonCodec extends StandardMessageCodec {
       case 133: 
         return TaskException.decode(readValue(buffer)!);
       case 134: 
-        return TaskCompleteData.decode(readValue(buffer)!);
+        return TaskProgressData.decode(readValue(buffer)!);
       case 135: 
         return TaskResumeData.decode(readValue(buffer)!);
       case 136: 
-        return TaskProgressData.decode(readValue(buffer)!);
+        return TaskCompleteData.decode(readValue(buffer)!);
       case 137: 
-        return FlowTask.decode(readValue(buffer)!);
+        return Task.decode(readValue(buffer)!);
       case 138: 
         return TaskStatus.decode(readValue(buffer)!);
       case 139: 

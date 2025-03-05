@@ -1,41 +1,40 @@
-import 'package:file_flow/pigeons/flow.g.dart';
-
 import 'config.dart';
-import 'models.dart';
-import 'operation.dart';
+import 'picker.dart';
 
 class FileFlow {
   FileFlow._();
 
   static FileFlowConfig _config = FileFlowConfig();
 
+  /// Returns the current [FileFlowConfig] configuration.
   static FileFlowConfig get config => _config;
 
-  static void configure({
-    RequestConfig? request,
-    StorageDirectory? baseDirectory,
-    String? defaultGroup,
-  }) {
-    _config = FileFlowConfig(
-      request: request ?? _config.request, // TODO: merge request config
-      baseDirectory: baseDirectory ?? _config.baseDirectory,
-      defaultGroup: defaultGroup ?? _config.defaultGroup,
-    );
+  /// Configures [FileFlow] with the provided [config].
+  ///
+  /// Parameters:
+  /// - `config`: The [FileFlowConfig] configuration to use.
+  ///
+  /// Usage:
+  ///
+  /// ```dart
+  /// FileFlow.configure(FileFlowConfig(
+  ///   request: RequestConfig(
+  ///     timeout: 60,
+  ///     retries: 0,
+  ///     proxy: ProxyConfig(address: 'http://proxy.example.com', port: 8080),
+  ///   ),
+  ///   baseDirectory: StorageDirectory.downloads,
+  ///   defaultGroup: 'default',
+  /// ));
+  /// ```
+  ///
+  /// Note: The values provided above are the default values in exception of
+  /// the `proxy` field which is not set by default. If you do not provide a
+  /// value for a field, the default value will be used.
+  static void configure(FileFlowConfig config) {
+    _config = config;
   }
 
-  static TaskOperation download(DownloadTask task) {
-    return FileOperation().download(task);
-  }
-
-  static BatchTaskOperation downloadBatch(List<DownloadTask> tasks) {
-    return FileOperation().downloadBatch(tasks);
-  }
-
-  static TaskOperation upload(UploadTask task) {
-    return FileOperation().upload(task);
-  }
-
-  static BatchTaskOperation uploadBatch(List<UploadTask> tasks) {
-    return FileOperation().uploadBatch(tasks);
-  }
+  /// Returns the [Picker] instance to use for picking a directory or file(s).
+  static Picker get picker => Picker();
 }

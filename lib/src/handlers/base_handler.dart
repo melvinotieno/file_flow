@@ -1,100 +1,92 @@
-import 'dart:async';
+import 'package:file_flow/src/pigeons/flow.g.dart';
 
-import 'package:file_flow/pigeons/flow.g.dart';
+/// An abstract base class that defines the structure for handling tasks.
+abstract base class BaseHandler {
+  /// A map to store task progress callbacks, keyed by task ID.
+  final Map<String, void Function(int, TaskProgressData)>
+  _taskProgressCallbacks = {};
 
-import '../models.dart';
-
-abstract class BaseHandler {
-  final Map<String, Completer<void>> _taskCompleters = {};
-
-  final Map<String, void Function(double)> _taskProgressCallbacks = {};
-
+  /// A map to store task state callbacks, keyed by task ID.
   final Map<String, void Function(TaskState)> _taskStateCallbacks = {};
 
-  /// Enqueues a task without waiting for completion.
-  Future<bool> enqueue(FlowTask task);
+  /// Enqueues a task for processing.
+  ///
+  /// Parameters:
+  /// - [task]: The task to enqueue.
+  ///
+  /// Returns a [Future] that completes with a boolean indicating whether the
+  /// task was successfully enqueued.
+  Future<bool> enqueue(Task task);
 
-  /// Enqueues a task and waits for its completion.
-  Future<TaskStatus> enqueueAndAwait(
-    FlowTask task, {
-    void Function(double)? onProgress,
+  /// Enqueues a task for processing, with optional callbacks for progress
+  /// updates and state changes.
+  ///
+  /// Parameters:
+  /// - [task]: The task to enqueue.
+  /// - [onProgressUpdate]: A callback to receive progress updates.
+  /// - [onStateChanged]: A callback to receive state change updates.
+  ///
+  /// Returns a [Future] that completes when the task has been enqueued.
+  Future<void> enqueueWithCallbacks(
+    Task task, {
     void Function(TaskState)? onStateChanged,
+    void Function(int, TaskProgressData)? onProgressUpdate,
   }) async {
-    if (onProgress != null) {
-      _taskProgressCallbacks[task.id] = onProgress;
+    if (onProgressUpdate != null) {
+      _taskProgressCallbacks[task.id] = onProgressUpdate;
     }
 
     if (onStateChanged != null) {
       _taskStateCallbacks[task.id] = onStateChanged;
     }
 
-    final taskCompleter = Completer<TaskStatus>();
-    _taskCompleters[task.id] = taskCompleter;
+    final success = await enqueue(task);
 
-    if (!await enqueue(task)) {
-      return Future.value(TaskStatus(taskId: task.id, state: TaskState.failed));
+    if (!success) {
+      final callback = _taskStateCallbacks[task.id];
+      callback?.call(TaskState.failed);
     }
-
-    return taskCompleter.future;
   }
 
-  /////////////////////////////////////////////////////////////////////////
+  /// Pauses a task with the given ID.
+  ///
+  /// Parameters:
+  /// - [taskId]: The ID of the task to pause.
+  ///
+  /// Returns a [Future] that completes with a boolean indicating whether the
+  /// task was successfully paused.
+  Future<bool> pauseWithId(String taskId);
 
-  // final Map<String, StreamController<double>> _progressControllers = {};
+  /// Cancels a task with the given ID.
+  ///
+  /// Parameters:
+  /// - [taskId]: The ID of the task to cancel.
+  ///
+  /// Returns a [Future] that completes with a boolean indicating whether the
+  /// task was successfully canceled.
+  Future<bool> cancelWithId(String taskId);
 
-  // /// Enqueues a task and waits for its completion
-  // Future<void> enqueueAndAwaitee(
-  //   FlowTask task, {
-  //   void Function(double)? onProgress,
-  //   void Function(TaskState)? onStateChanged,
-  // }) async {
-  //   final completer = Completer<void>();
-  //   _taskCompleters[task.id] = completer;
+  /// Processes the progress update for a given task.
+  ///
+  /// Parameters:
+  /// - [taskProgress]: The progress update data.
+  void processProgressUpdate(TaskProgress taskProgress) {
+    final callback = _taskProgressCallbacks[taskProgress.taskId];
 
-  //   if (onProgress != null) {
-  //     final controller = StreamController<double>.broadcast();
-  //     _progressControllers[task.id] = controller;
-  //     controller.stream.listen(onProgress);
-  //   }
+    if (callback != null) {
+      callback(taskProgress.progress, taskProgress.data);
+    }
+  }
 
-  //   try {
-  //     await enqueue(task);
-  //     return completer.future;
-  //   } catch (e) {
-  //     _taskCompleters.remove(task.id);
-  //     _progressControllers.remove(task.id)?.close();
-  //     rethrow;
-  //   }
-  // }
+  /// Processes the status update for a given task.
+  ///
+  /// Parameters:
+  /// - [taskStatus]: The status update data.
+  void processStatusUpdate(TaskStatus taskStatus) {
+    final callback = _taskStateCallbacks[taskStatus.taskId];
 
-  // /// Called by implementations when a task completes
-  // void completeTask(String taskId) {
-  //   _taskCompleters.remove(taskId)?.complete();
-  //   _progressControllers.remove(taskId)?.close();
-  // }
-
-  // /// Called by implementations when a task fails
-  // void failTask(String taskId, [Object? error]) {
-  //   _taskCompleters.remove(taskId)?.completeError(error ?? 'Task failed');
-  //   _progressControllers.remove(taskId)?.close();
-  // }
-
-  // /// Called by implementations to update progress
-  // void updateProgress(String taskId, double progress) {
-  //   _progressControllers[taskId]?.add(progress);
-  // }
-
-  // /// Cleanup resources
-  // void dispose() {
-  //   for (final completer in _taskCompleters.values) {
-  //     if (!completer.isCompleted) {
-  //       completer.completeError('Handler disposed');
-  //     }
-  //   }
-  //   for (final controller in _progressControllers.values) {
-  //     controller.close();
-  //   }
-  //   _taskCompleters.clear();
-  //   _progressControllers.clear();
-  // }
+    if (callback != null) {
+      callback(taskStatus.state);
+    }
+  }
 }

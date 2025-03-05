@@ -7,16 +7,16 @@ import com.melvinotieno.file_flow.pigeons.TaskErrorCode
  *
  * @property code the [TaskErrorCode] associated with the exception.
  * @property description the message describing the exception.
- * @property response optional HTTP response, if any.
+ * @property response optional HTTP response, if any, as a string.
  * @property cause the cause of the exception.
  */
 class FlowException : Exception {
     val code: TaskErrorCode
     val description: String
-    val response: Map<String, Any>?
+    val response: String?
 
     constructor(
-        code: TaskErrorCode, description: String, response: Map<String, Any>?, cause: Throwable?
+        code: TaskErrorCode, description: String, response: String?, cause: Throwable?
     ) : super(description, cause) {
         this.code = code
         this.description = description
@@ -24,7 +24,7 @@ class FlowException : Exception {
     }
 
     constructor(
-        code: TaskErrorCode, description: String, response: Map<String, Any>?
+        code: TaskErrorCode, description: String, response: String?
     ) : this(code, description, response, null)
 
     constructor(

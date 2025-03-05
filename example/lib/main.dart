@@ -1,40 +1,25 @@
-import 'package:file_flow_example/examples/download_example.dart';
+import 'package:file_flow_example/screens/home.dart';
 import 'package:flutter/material.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('FileFlow Example'),
-          actions: [
-            IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
-          ],
+      theme: ThemeData(
+        appBarTheme: const AppBarTheme(
+          elevation: 0.0,
+          scrolledUnderElevation: 0.0,
+          backgroundColor: Colors.white,
         ),
-        body: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(16.0),
-                child: DownloadExample(),
-              ),
-            ),
-          ],
-        ),
+        scaffoldBackgroundColor: Colors.white,
       ),
+      home: const Home(),
     );
   }
 }
