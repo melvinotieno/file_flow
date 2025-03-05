@@ -179,18 +179,22 @@ class TaskResumeData {
 
 /// The data of a task that has been completed.
 class TaskCompleteData {
-  TaskCompleteData({this.path, this.mimeType, this.rawResponse});
+  TaskCompleteData({
+    required this.path,
+    required this.mimeType,
+    required this.rawResponse,
+  });
 
   /// The path of the task file.
   ///
   /// This is the path to the file that was downloaded or uploaded.
-  final String? path;
+  final String path;
 
   /// The MIME type of the task file.
-  final String? mimeType;
+  final String mimeType;
 
   /// The server response of the url request.
-  final String? rawResponse;
+  final String rawResponse;
 }
 
 /// The task used by native code for execution.
@@ -209,7 +213,7 @@ class Task {
     this.urls,
     this.chunks,
     this.directoryUri,
-    this.baseDirectory,
+    required this.baseDirectory,
     this.directory,
     this.filename,
   });
@@ -258,7 +262,7 @@ class Task {
   final String? directoryUri;
 
   /// The base directory for the task files.
-  final StorageDirectory? baseDirectory;
+  final StorageDirectory baseDirectory;
 
   /// The child directory within the base directory for the task files.
   final String? directory;
@@ -317,7 +321,7 @@ class TaskProgress extends TaskEvent {
   final String taskGroup;
 
   /// The progress of the task.
-  final double progress;
+  final int progress;
 
   /// The progress data of the task.
   final TaskProgressData data;
@@ -348,7 +352,9 @@ abstract class FileFlowHostApi {
 
 @FlutterApi()
 abstract class FileFlowFlutterApi {
+  /// Handles the status update of a task.
   void onStatusUpdate(TaskStatus taskStatus);
 
+  /// Handles the progress update of a task.
   void onProgressUpdate(TaskProgress taskProgress);
 }
