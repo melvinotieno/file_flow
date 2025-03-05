@@ -6,7 +6,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.melvinotieno.file_flow.exceptions.FlowException
-import com.melvinotieno.file_flow.helpers.ProgressDataSerializer
 import com.melvinotieno.file_flow.helpers.encode
 import com.melvinotieno.file_flow.helpers.decode
 import com.melvinotieno.file_flow.pigeons.Task
@@ -22,7 +21,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -170,10 +168,7 @@ abstract class TaskWorker(
 
         if (shouldUpdate) {
             val progress = (transferredBytes.toDouble() / expectedBytes * 100).toInt()
-
-            val data = TaskProgressData(expectedBytes, transferredBytes, networkSpeed).let {
-                Json.encodeToString<TaskProgressData>(ProgressDataSerializer, it)
-            }
+            val data = TaskProgressData(expectedBytes, transferredBytes, networkSpeed).encode()
 
             setProgress(workDataOf(KEY_PROGRESS to progress, KEY_DATA to data))
 
