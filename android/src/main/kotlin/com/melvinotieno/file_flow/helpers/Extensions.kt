@@ -6,9 +6,35 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
+import androidx.core.net.toUri
+import com.melvinotieno.file_flow.pigeons.PickerDirectory
 import com.melvinotieno.file_flow.pigeons.Task
 import com.melvinotieno.file_flow.pigeons.StorageDirectory
 import io.flutter.util.PathUtils
+
+/**
+ * Get the directory path for the picker directory.
+ */
+val PickerDirectory.dirPath: String
+    get() = when (this) {
+        PickerDirectory.DOCUMENTS -> Environment.DIRECTORY_DOCUMENTS
+        PickerDirectory.DOWNLOADS -> Environment.DIRECTORY_DOWNLOADS
+        PickerDirectory.IMAGES -> Environment.DIRECTORY_PICTURES
+        PickerDirectory.VIDEO -> Environment.DIRECTORY_MOVIES
+        PickerDirectory.AUDIO -> Environment.DIRECTORY_MUSIC
+    }
+
+/**
+ * Get the persistable URI for the picker directory.
+ */
+val PickerDirectory.persistableUri: Uri
+    get() = "$DOCUMENT_TREE_PRIMARY$dirPath".toUri()
+
+/**
+ * Get the document URI for the picker directory.
+ */
+val PickerDirectory.documentUri: Uri
+    get() = "$persistableUri/document/primary%3A$dirPath".toUri()
 
 /**
  * Returns if the storage directory is intended for shared storage.
