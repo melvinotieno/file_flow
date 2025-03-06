@@ -8,9 +8,14 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  static final navigatorKey = GlobalKey<NavigatorState>();
+  static final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: ThemeData(
         appBarTheme: const AppBarTheme(
           elevation: 0.0,
