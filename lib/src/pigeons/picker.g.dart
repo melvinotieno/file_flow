@@ -27,11 +27,11 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
 
 /// Represents the base directory for picker operations.
 enum PickerDirectory {
+  documents,
   downloads,
   images,
   video,
   audio,
-  files,
 }
 
 

@@ -48,11 +48,11 @@ class PickerFlutterError (
 
 /** Represents the base directory for picker operations. */
 enum class PickerDirectory(val raw: Int) {
-  DOWNLOADS(0),
-  IMAGES(1),
-  VIDEO(2),
-  AUDIO(3),
-  FILES(4);
+  DOCUMENTS(0),
+  DOWNLOADS(1),
+  IMAGES(2),
+  VIDEO(3),
+  AUDIO(4);
 
   companion object {
     fun ofRaw(raw: Int): PickerDirectory? {
