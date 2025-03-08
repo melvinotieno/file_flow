@@ -25,13 +25,19 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   return <Object?>[error.code, error.message, error.details];
 }
 
-/// Represents the base directory for picker operations.
+/// The base directory to start a picker from.
 enum PickerDirectory {
   documents,
   downloads,
   images,
   video,
   audio,
+}
+
+/// The type of media to pick when using a media picker.
+enum PickerMedia {
+  image,
+  video,
 }
 
 
@@ -45,6 +51,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PickerDirectory) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
+    }    else if (value is PickerMedia) {
+      buffer.putUint8(130);
+      writeValue(buffer, value.index);
     } else {
       super.writeValue(buffer, value);
     }
@@ -56,6 +65,9 @@ class _PigeonCodec extends StandardMessageCodec {
       case 129: 
         final int? value = readValue(buffer) as int?;
         return value == null ? null : PickerDirectory.values[value];
+      case 130: 
+        final int? value = readValue(buffer) as int?;
+        return value == null ? null : PickerMedia.values[value];
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -75,11 +87,13 @@ class PickerHostApi {
 
   final String pigeonVar_messageChannelSuffix;
 
-  /// Checks if the specified URI use permission has been persisted.
+  /// Checks if the specified URI has been persisted.
   ///
   /// Parameters:
   /// - [uri]: The URI to check.
-  Future<bool> persisted(String uri) async {
+  ///
+  /// Returns `true` if the URI has been persisted, `false` otherwise.
+  Future<bool> persisted(Object uri) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.file_flow.PickerHostApi.persisted$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -109,12 +123,12 @@ class PickerHostApi {
   /// Allows the user to select a directory from the file system.
   ///
   /// Parameters:
-  /// - [directory]: The base directory to start the picker from. This can
-  /// either be a [PickerDirectory] or a [String] representing a directory URI.
+  /// - [directory]: The base directory to start the picker from.
+  /// - [exact]: Allow the exact directory or any subdirectory to be picked.
   /// - [persist]: Whether the selected directory should be persisted.
   ///
   /// Returns the URI of the selected directory as a [String].
-  Future<String> pickDirectory([Object? directory, bool persist = false]) async {
+  Future<String> pickDirectory([Object? directory, Object exact = false, bool persist = false,]) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.file_flow.PickerHostApi.pickDirectory$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -122,7 +136,7 @@ class PickerHostApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[directory, persist]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[directory, exact, persist]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -144,13 +158,13 @@ class PickerHostApi {
   /// Allows the user to select a file from the file system.
   ///
   /// Parameters:
-  /// - [directory]: The base directory to start the picker from. This can
-  /// either be a [PickerDirectory] or a [String] representing a directory URI.
-  /// - [extensions]: A list of file extensions to filter the picker by.
+  /// - [directory]: The base directory to start the picker from.
+  /// - [mimeTypes]: A list of file mime types to filter the picker by.
+  /// - [exact]: File must be within the base directory given.
   /// - [persist]: Whether the selected file should be persisted.
   ///
   /// Returns the URI of the selected file as a [String].
-  Future<String> pickFile([Object? directory, List<String>? extensions, bool persist = false,]) async {
+  Future<String> pickFile([Object? directory, List<String>? mimeTypes, bool exact = false, bool persist = false,]) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.file_flow.PickerHostApi.pickFile$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -158,7 +172,7 @@ class PickerHostApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[directory, extensions, persist]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[directory, mimeTypes, exact, persist]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -180,13 +194,13 @@ class PickerHostApi {
   /// Allows the user to select multiple files from the file system.
   ///
   /// Parameters:
-  /// - [directory]: The base directory to start the picker from. This can
-  /// either be a [PickerDirectory] or a [String] representing a directory URI.
-  /// - [extensions]: A list of file extensions to filter the picker by.
+  /// - [directory]: The base directory to start the picker from.
+  /// - [mimeTypes]: A list of file mime types to filter the picker by.
+  /// - [exact]: Files must be within the base directory given.
   /// - [persist]: Whether the selected files should be persisted.
   ///
   /// Returns the URIs of the selected files as a [List] of [String]s.
-  Future<List<String>> pickFiles([Object? directory, List<String>? extensions, bool persist = false,]) async {
+  Future<List<String>> pickFiles([Object? directory, List<String>? mimeTypes, bool exact = false, bool persist = false,]) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.file_flow.PickerHostApi.pickFiles$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -194,7 +208,77 @@ class PickerHostApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[directory, extensions, persist]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[directory, mimeTypes, exact, persist]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<String>();
+    }
+  }
+
+  /// Allows the user to select a media file (image or video) from the file
+  /// system. By default, an image is picked.
+  ///
+  /// Parameters:
+  /// - [media]: The type of media to pick.
+  /// - [persist]: Whether the selected media file should be persisted.
+  ///
+  /// Returns the URI of the selected media file as a [String].
+  Future<String> pickMediaFile([PickerMedia media = PickerMedia.image, bool persist = false]) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.file_flow.PickerHostApi.pickMediaFile$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[media, persist]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as String?)!;
+    }
+  }
+
+  /// Allows the user to select multiple media files (images or videos) from the
+  /// file system. By default, images are picked.
+  ///
+  /// Parameters:
+  /// - [media]: The type of media to pick.
+  /// - [persist]: Whether the selected media files should be persisted.
+  ///
+  /// Returns the URIs of the selected media files as a [List] of [String]s.
+  Future<List<String>> pickMediaFiles([PickerMedia media = PickerMedia.image, bool persist = false]) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.file_flow.PickerHostApi.pickMediaFiles$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[media, persist]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {

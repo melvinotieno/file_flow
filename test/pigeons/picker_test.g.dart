@@ -21,6 +21,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PickerDirectory) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
+    }    else if (value is PickerMedia) {
+      buffer.putUint8(130);
+      writeValue(buffer, value.index);
     } else {
       super.writeValue(buffer, value);
     }
@@ -32,6 +35,9 @@ class _PigeonCodec extends StandardMessageCodec {
       case 129: 
         final int? value = readValue(buffer) as int?;
         return value == null ? null : PickerDirectory.values[value];
+      case 130: 
+        final int? value = readValue(buffer) as int?;
+        return value == null ? null : PickerMedia.values[value];
       default:
         return super.readValueOfType(type, buffer);
     }
