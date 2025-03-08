@@ -2,6 +2,7 @@ import 'package:file_flow/file_flow.dart';
 import 'package:file_flow_example/utilities.dart';
 import 'package:file_flow_example/widgets/selector_buttons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 enum Picker { directory, file, files, mediaFile, mediaFiles, persisted }
 
@@ -35,6 +36,7 @@ class _PickerExampleState extends State<PickerExample> {
   dynamic _exact = false;
   bool _persist = false;
   PickerMedia _media = PickerMedia.image;
+  String? _result;
 
   String? get _directory =>
       _directoryController.text.isEmpty ? null : _directoryController.text;
@@ -75,9 +77,7 @@ class _PickerExampleState extends State<PickerExample> {
                       child: Text(getNameFromEnum(value)),
                     ),
                 ],
-                onChanged: (value) => setState(
-                  () => _pickerDirectory = value,
-                ),
+                onChanged: (value) => setState(() => _pickerDirectory = value),
               ),
             ),
           ),
@@ -98,7 +98,7 @@ class _PickerExampleState extends State<PickerExample> {
                 border: OutlineInputBorder(),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton(
+                child: DropdownButton<dynamic>(
                   isExpanded: true,
                   value: _exact,
                   items: const [
@@ -115,9 +115,7 @@ class _PickerExampleState extends State<PickerExample> {
                       child: Text('Subdirectory'),
                     ),
                   ],
-                  onChanged: (value) => setState(
-                    () => _exact = value,
-                  ),
+                  onChanged: (value) => setState(() => _exact = value),
                 ),
               ),
             ),
@@ -126,6 +124,31 @@ class _PickerExampleState extends State<PickerExample> {
             TextField(
               controller: _mimeTypesController,
               decoration: const InputDecoration(labelText: 'Mime Types'),
+            ),
+            const SizedBox(height: 24.0),
+            InputDecorator(
+              decoration: const InputDecoration(
+                labelText: "Exact",
+                contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
+                border: OutlineInputBorder(),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<dynamic>(
+                  isExpanded: true,
+                  value: _exact,
+                  items: const [
+                    DropdownMenuItem(
+                      value: false,
+                      child: Text('False'),
+                    ),
+                    DropdownMenuItem(
+                      value: true,
+                      child: Text('True'),
+                    ),
+                  ],
+                  onChanged: (value) => setState(() => _exact = value),
+                ),
+              ),
             ),
           ],
         ],
@@ -157,7 +180,9 @@ class _PickerExampleState extends State<PickerExample> {
                 ),
               ],
             ),
-          ),
+          )
+        else
+          const SizedBox(height: 16.0),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -165,45 +190,71 @@ class _PickerExampleState extends State<PickerExample> {
             child: const Text("Open Picker"),
           ),
         ),
+        if (_result != null) ...[
+          const SizedBox(height: 16.0),
+          Text("Result: $_result"),
+        ],
       ],
     );
   }
 
   void _openPicker() async {
+    setState(() => _result = null);
     final directory = _directory ?? _pickerDirectory;
     final mimeTypes = _mimeTypes?.split(',');
 
-    switch (_picker) {
-      case Picker.directory:
-        await FileFlow.picker.directory(
-          directory: directory,
-          exact: _exact,
-          persist: _persist,
-        );
-      case Picker.file:
-        await FileFlow.picker.file(
-          directory: directory,
-          mimeTypes: mimeTypes,
-          persist: _persist,
-        );
-      case Picker.files:
-        await FileFlow.picker.files(
-          directory: directory,
-          mimeTypes: mimeTypes,
-          persist: _persist,
-        );
-      case Picker.mediaFile:
-        await FileFlow.picker.mediaFile(
-          media: _media,
-          persist: _persist,
-        );
-      case Picker.mediaFiles:
-        await FileFlow.picker.mediaFiles(
-          media: _media,
-          persist: _persist,
-        );
-      case Picker.persisted:
-        await FileFlow.picker.persisted(_directory);
+    dynamic result;
+
+    try {
+      switch (_picker) {
+        case Picker.directory:
+          result = await FileFlow.picker.directory(
+            directory: directory,
+            exact: _exact,
+            persist: _persist,
+          );
+          break;
+        case Picker.file:
+          result = await FileFlow.picker.file(
+            directory: directory,
+            mimeTypes: mimeTypes,
+            exact: _exact,
+            persist: _persist,
+          );
+          break;
+        case Picker.files:
+          result = await FileFlow.picker.files(
+            directory: directory,
+            mimeTypes: mimeTypes,
+            exact: _exact,
+            persist: _persist,
+          );
+          break;
+        case Picker.mediaFile:
+          result = await FileFlow.picker.mediaFile(
+            media: _media,
+            persist: _persist,
+          );
+          break;
+        case Picker.mediaFiles:
+          result = await FileFlow.picker.mediaFiles(
+            media: _media,
+            persist: _persist,
+          );
+          break;
+        case Picker.persisted:
+          if (directory != null) {
+            final persisted = await FileFlow.picker.persisted(directory);
+            showSnackBar("Uri persisted: $persisted");
+          }
+          break;
+      }
+    } on PlatformException catch (e) {
+      showSnackBar("Error Code: ${e.code}");
+    }
+
+    if (result != null) {
+      setState(() => _result = result.toString());
     }
   }
 }
