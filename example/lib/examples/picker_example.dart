@@ -187,7 +187,7 @@ class _PickerExampleState extends State<PickerExample> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: _openPicker,
-            child: const Text("Open Picker"),
+            child: Text(_picker == Picker.persisted ? "Check" : "Open Picker"),
           ),
         ),
         if (_result != null) ...[
