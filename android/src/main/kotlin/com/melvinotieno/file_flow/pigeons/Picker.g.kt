@@ -46,16 +46,28 @@ class PickerFlutterError (
   val details: Any? = null
 ) : Throwable()
 
-/** Represents the base directory for picker operations. */
+/** The base directory to start a picker from. */
 enum class PickerDirectory(val raw: Int) {
-  DOWNLOADS(0),
-  IMAGES(1),
-  VIDEO(2),
-  AUDIO(3),
-  FILES(4);
+  DOCUMENTS(0),
+  DOWNLOADS(1),
+  IMAGES(2),
+  VIDEO(3),
+  AUDIO(4);
 
   companion object {
     fun ofRaw(raw: Int): PickerDirectory? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
+/** The type of media to pick when using a media picker. */
+enum class PickerMedia(val raw: Int) {
+  IMAGE(0),
+  VIDEO(1);
+
+  companion object {
+    fun ofRaw(raw: Int): PickerMedia? {
       return values().firstOrNull { it.raw == raw }
     }
   }
@@ -68,6 +80,11 @@ private open class PickerPigeonCodec : StandardMessageCodec() {
           PickerDirectory.ofRaw(it.toInt())
         }
       }
+      130.toByte() -> {
+        return (readValue(buffer) as Long?)?.let {
+          PickerMedia.ofRaw(it.toInt())
+        }
+      }
       else -> super.readValueOfType(type, buffer)
     }
   }
@@ -75,6 +92,10 @@ private open class PickerPigeonCodec : StandardMessageCodec() {
     when (value) {
       is PickerDirectory -> {
         stream.write(129)
+        writeValue(stream, value.raw)
+      }
+      is PickerMedia -> {
+        stream.write(130)
         writeValue(stream, value.raw)
       }
       else -> super.writeValue(stream, value)
@@ -86,47 +107,71 @@ private open class PickerPigeonCodec : StandardMessageCodec() {
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface PickerHostApi {
   /**
-   * Checks if the specified URI use permission has been persisted.
+   * Checks if the specified URI has been persisted.
    *
    * Parameters:
    * - [uri]: The URI to check.
+   *
+   * Returns `true` if the URI has been persisted, `false` otherwise.
    */
-  fun persisted(uri: String): Boolean
+  fun persisted(uri: Any): Boolean
   /**
    * Allows the user to select a directory from the file system.
    *
    * Parameters:
-   * - [directory]: The base directory to start the picker from. This can
-   * either be a [PickerDirectory] or a [String] representing a directory URI.
+   * - [directory]: The base directory to start the picker from.
+   * - [exact]: Allow the exact directory or any subdirectory to be picked.
    * - [persist]: Whether the selected directory should be persisted.
    *
    * Returns the URI of the selected directory as a [String].
    */
-  fun pickDirectory(directory: Any?, persist: Boolean, callback: (Result<String>) -> Unit)
+  fun pickDirectory(directory: Any?, exact: Any, persist: Boolean, callback: (Result<String>) -> Unit)
   /**
    * Allows the user to select a file from the file system.
    *
    * Parameters:
-   * - [directory]: The base directory to start the picker from. This can
-   * either be a [PickerDirectory] or a [String] representing a directory URI.
-   * - [extensions]: A list of file extensions to filter the picker by.
+   * - [directory]: The base directory to start the picker from.
+   * - [mimeTypes]: A list of file mime types to filter the picker by.
+   * - [exact]: File must be within the base directory given.
    * - [persist]: Whether the selected file should be persisted.
    *
    * Returns the URI of the selected file as a [String].
    */
-  fun pickFile(directory: Any?, extensions: List<String>?, persist: Boolean, callback: (Result<String>) -> Unit)
+  fun pickFile(directory: Any?, mimeTypes: List<String>?, exact: Boolean, persist: Boolean, callback: (Result<String>) -> Unit)
   /**
    * Allows the user to select multiple files from the file system.
    *
    * Parameters:
-   * - [directory]: The base directory to start the picker from. This can
-   * either be a [PickerDirectory] or a [String] representing a directory URI.
-   * - [extensions]: A list of file extensions to filter the picker by.
+   * - [directory]: The base directory to start the picker from.
+   * - [mimeTypes]: A list of file mime types to filter the picker by.
+   * - [exact]: Files must be within the base directory given.
    * - [persist]: Whether the selected files should be persisted.
    *
    * Returns the URIs of the selected files as a [List] of [String]s.
    */
-  fun pickFiles(directory: Any?, extensions: List<String>?, persist: Boolean, callback: (Result<List<String>>) -> Unit)
+  fun pickFiles(directory: Any?, mimeTypes: List<String>?, exact: Boolean, persist: Boolean, callback: (Result<List<String>>) -> Unit)
+  /**
+   * Allows the user to select a media file (image or video) from the file
+   * system. By default, an image is picked.
+   *
+   * Parameters:
+   * - [media]: The type of media to pick.
+   * - [persist]: Whether the selected media file should be persisted.
+   *
+   * Returns the URI of the selected media file as a [String].
+   */
+  fun pickMediaFile(media: PickerMedia, persist: Boolean, callback: (Result<String>) -> Unit)
+  /**
+   * Allows the user to select multiple media files (images or videos) from the
+   * file system. By default, images are picked.
+   *
+   * Parameters:
+   * - [media]: The type of media to pick.
+   * - [persist]: Whether the selected media files should be persisted.
+   *
+   * Returns the URIs of the selected media files as a [List] of [String]s.
+   */
+  fun pickMediaFiles(media: PickerMedia, persist: Boolean, callback: (Result<List<String>>) -> Unit)
 
   companion object {
     /** The codec used by PickerHostApi. */
@@ -142,7 +187,7 @@ interface PickerHostApi {
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
-            val uriArg = args[0] as String
+            val uriArg = args[0] as Any
             val wrapped: List<Any?> = try {
               listOf(api.persisted(uriArg))
             } catch (exception: Throwable) {
@@ -160,8 +205,9 @@ interface PickerHostApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val directoryArg = args[0]
-            val persistArg = args[1] as Boolean
-            api.pickDirectory(directoryArg, persistArg) { result: Result<String> ->
+            val exactArg = args[1] as Any
+            val persistArg = args[2] as Boolean
+            api.pickDirectory(directoryArg, exactArg, persistArg) { result: Result<String> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -181,9 +227,10 @@ interface PickerHostApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val directoryArg = args[0]
-            val extensionsArg = args[1] as List<String>?
-            val persistArg = args[2] as Boolean
-            api.pickFile(directoryArg, extensionsArg, persistArg) { result: Result<String> ->
+            val mimeTypesArg = args[1] as List<String>?
+            val exactArg = args[2] as Boolean
+            val persistArg = args[3] as Boolean
+            api.pickFile(directoryArg, mimeTypesArg, exactArg, persistArg) { result: Result<String> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -203,9 +250,52 @@ interface PickerHostApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val directoryArg = args[0]
-            val extensionsArg = args[1] as List<String>?
-            val persistArg = args[2] as Boolean
-            api.pickFiles(directoryArg, extensionsArg, persistArg) { result: Result<List<String>> ->
+            val mimeTypesArg = args[1] as List<String>?
+            val exactArg = args[2] as Boolean
+            val persistArg = args[3] as Boolean
+            api.pickFiles(directoryArg, mimeTypesArg, exactArg, persistArg) { result: Result<List<String>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.file_flow.PickerHostApi.pickMediaFile$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val mediaArg = args[0] as PickerMedia
+            val persistArg = args[1] as Boolean
+            api.pickMediaFile(mediaArg, persistArg) { result: Result<String> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.file_flow.PickerHostApi.pickMediaFiles$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val mediaArg = args[0] as PickerMedia
+            val persistArg = args[1] as Boolean
+            api.pickMediaFiles(mediaArg, persistArg) { result: Result<List<String>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

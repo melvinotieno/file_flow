@@ -1,10 +1,16 @@
 name: file_flow
-version: 1.0.0-dev.1
-description: "Seamlessly handle background file downloads and uploads."
+version: 1.0.0-dev.2
+description: "Seamlessly handle background file uploads and downloads, with support for multiple platforms."
 homepage: https://github.com/melvinotieno/file_flow
 repository: https://github.com/melvinotieno/file_flow
-issue_tracker: https://github.com/melvinotieno/file_flow/issues'
+issue_tracker: https://github.com/melvinotieno/file_flow/issues
 documentation: https://github.com/melvinotieno/file_flow/blob/main/README.md
+
+topics:
+  - file-upload
+  - file-download
+  - background-upload
+  - background-download
 
 environment:
   sdk: ^3.7.0

@@ -1,15 +1,4 @@
 # file_flow
 
-A new Flutter plugin project.
-
-## Getting Started
-
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/to/develop-plugins),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-
+[![pub package](https://img.shields.io/pub/v/file_flow.svg)](https://pub.dev/packages/file_flow)
+[![pub points](https://img.shields.io/pub/points/file_flow?color=2E8B57&label=pub%20points)](https://pub.dev/packages/file_flow/score)

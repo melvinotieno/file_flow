@@ -1,10 +1,12 @@
 import 'package:file_flow_example/examples/download_example.dart';
 import 'package:file_flow_example/examples/multi_upload_example.dart';
 import 'package:file_flow_example/examples/parallel_download_example.dart';
+import 'package:file_flow_example/examples/picker_example.dart';
 import 'package:file_flow_example/examples/upload_example.dart';
 import 'package:file_flow_example/screens/downloads.dart';
 import 'package:file_flow_example/screens/settings.dart';
-import 'package:file_flow_example/widgets/task_selector.dart';
+import 'package:file_flow_example/utilities.dart';
+import 'package:file_flow_example/widgets/example_selector.dart';
 import 'package:flutter/material.dart';
 
 class Home extends StatefulWidget {
@@ -15,7 +17,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  TaskType _selectedTask = TaskType.download;
+  Example _selectedExample = Example.download;
 
   @override
   Widget build(BuildContext context) {
@@ -25,15 +27,11 @@ class _HomeState extends State<Home> {
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const Downloads()),
-            ),
+            onPressed: () => navigate(const Downloads()),
           ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const Settings()),
-            ),
+            onPressed: () => navigate(const Settings()),
           ),
         ],
       ),
@@ -42,11 +40,15 @@ class _HomeState extends State<Home> {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 16.0, bottom: 4.0),
-            child: Text('Task', style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              'Example',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
-          TaskSelector(
-            selectedTask: _selectedTask,
-            onTaskSelected: (task) => setState(() => _selectedTask = task),
+          ExampleSelector(
+            selectedExample: _selectedExample,
+            onExampleSelected: (example) =>
+                setState(() => _selectedExample = example),
           ),
           const SizedBox(height: 8.0),
           Expanded(
@@ -64,15 +66,17 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildExample() {
-    switch (_selectedTask) {
-      case TaskType.download:
+    switch (_selectedExample) {
+      case Example.download:
         return const DownloadExample();
-      case TaskType.upload:
+      case Example.upload:
         return const UploadExample();
-      case TaskType.parallelDownload:
-        return const ParallelDownloadExample();
-      case TaskType.multiUpload:
+      case Example.multiUpload:
         return const MultiUploadExample();
+      case Example.parallelDownload:
+        return const ParallelDownloadExample();
+      case Example.picker:
+        return const PickerExample();
     }
   }
 }

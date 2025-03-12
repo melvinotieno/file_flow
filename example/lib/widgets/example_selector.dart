@@ -1,45 +1,50 @@
 import 'package:file_flow_example/utilities.dart';
 import 'package:flutter/material.dart';
 
-enum TaskType {
+enum Example {
   download,
 
   upload,
 
+  multiUpload,
+
   parallelDownload,
 
-  multiUpload;
+  picker;
 
   IconData get icon {
     switch (this) {
-      case TaskType.download:
+      case Example.download:
         return Icons.download;
-      case TaskType.upload:
+      case Example.upload:
         return Icons.upload;
-      case TaskType.parallelDownload:
-        return Icons.download_for_offline;
-      case TaskType.multiUpload:
+      case Example.multiUpload:
         return Icons.upload_file;
+      case Example.parallelDownload:
+        return Icons.download_for_offline;
+      case Example.picker:
+        return Icons.file_copy;
     }
   }
 }
 
-class TaskSelector extends StatelessWidget {
-  final List<TaskType> tasks = [
-    TaskType.download,
-    TaskType.upload,
-    TaskType.parallelDownload,
-    TaskType.multiUpload
+class ExampleSelector extends StatelessWidget {
+  final List<Example> examples = [
+    Example.download,
+    Example.upload,
+    Example.multiUpload,
+    Example.parallelDownload,
+    Example.picker,
   ];
 
-  TaskSelector({
+  ExampleSelector({
     super.key,
-    required this.selectedTask,
-    required this.onTaskSelected,
+    required this.selectedExample,
+    required this.onExampleSelected,
   });
 
-  final TaskType selectedTask;
-  final ValueChanged<TaskType> onTaskSelected;
+  final Example selectedExample;
+  final ValueChanged<Example> onExampleSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -48,13 +53,13 @@ class TaskSelector extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
         children: [
-          for (final task in tasks) ...[
+          for (final example in examples) ...[
             _SelectorButton(
-              task: task,
-              isSelected: task == selectedTask,
-              onSelected: onTaskSelected,
+              example: example,
+              isSelected: example == selectedExample,
+              onSelected: onExampleSelected,
             ),
-            if (task != tasks.last) const SizedBox(width: 16.0),
+            if (example != examples.last) const SizedBox(width: 16.0),
           ]
         ],
       ),
@@ -64,23 +69,23 @@ class TaskSelector extends StatelessWidget {
 
 class _SelectorButton extends StatelessWidget {
   const _SelectorButton({
-    required this.task,
+    required this.example,
     required this.isSelected,
     required this.onSelected,
   });
 
-  final TaskType task;
+  final Example example;
   final bool isSelected;
-  final ValueChanged<TaskType> onSelected;
+  final ValueChanged<Example> onSelected;
 
   @override
   Widget build(BuildContext context) {
     return TextButton.icon(
       onPressed: () {
-        if (!isSelected) onSelected(task);
+        if (!isSelected) onSelected(example);
       },
-      label: Text(getNameFromEnum(task)),
-      icon: Icon(task.icon),
+      label: Text(getNameFromEnum(example)),
+      icon: Icon(example.icon),
       style: TextButton.styleFrom(
         minimumSize: const Size(150.0, 50.0),
         shape: RoundedRectangleBorder(
