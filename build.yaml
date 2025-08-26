@@ -5,6 +5,7 @@ targets:
         options:
           dart:
             out: "lib/src/pigeons"
+          out_folder: "pigeons"
 
 additional_public_assets:
   - pigeons/**
